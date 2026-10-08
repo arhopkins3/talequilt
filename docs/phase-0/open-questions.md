@@ -1,15 +1,40 @@
 # Phase 0 survey: open questions for Alex
 
-Status: awaiting answers. No code is written until these are settled. Each answer becomes an ADR in `docs/adr/`.
+Status: answered by Alex on 8 Oct 2026 in a Claude Code survey. Decisions are listed first; the original options follow for the record. Each decision becomes an ADR in `docs/adr/` during Phase 0.
 
 Repository state found on 8 Oct 2026: `arhopkins3/talequilt` exists on GitHub, is public, has default branch `main`, and holds no commits on any branch.
 
-## Already settled by the repository itself (please confirm)
+## Decisions
+
+| # | Topic | Decision |
+| --- | --- | --- |
+| 1 | Name | TaleQuilt, working name; formal UK IPO / EUIPO / USPTO check before buying a domain |
+| 2 | Visibility | Public |
+| 3 | Platform | GitHub Actions throughout; no mapping to another platform |
+| 4 | Claude sign-in | Console API key with a monthly spend limit, stored as a repository secret |
+| 5 | Image provider | OpenAI direct (GPT Image 2) first, Azure AI Foundry as the second implementation |
+| 5a | Image spend cap | £20 a month on the account; £5 default per-book budget, configurable |
+| 6 | Print service | Lulu; 8.5 x 8.5 in picture book, 6 x 9 in chapter book, confirmed against Lulu's list when building |
+| 7 | First book | Alex's own text (manuscript to be supplied before Phase 5) |
+| 8 | Hosting | Azure Container Apps (consumption) for API and worker, Static Web Apps for React, Azure SQL serverless with auto-pause, Storage queues and blobs, Key Vault |
+| 8a | Azure | UK South, pay-as-you-go, with a budget alert in the Phase 3 ADR |
+| 9 | Domain | Subdomains of Alex's personal domain for production and staging (domain and DNS host to be supplied) |
+| 10 | Sign-in | Google and Apple, through libraries, no identity broker; allow-list of permitted accounts. Apple needs Apple Developer Programme enrolment |
+| 11 | Coverage | 80 percent line coverage on every project from the start, tests excluded; threshold may only rise |
+| 12 | Small changes | `size/small` label applied by Alex at G1 skips G2. Never small: `.github/`, infrastructure, sign-in, AI calls, database schema, test thresholds. Always small: docs-only, dependency bumps |
+| 13 | Bootstrap | Alex seeds `main` with a README in the GitHub UI and sets it as default; agents never commit to main |
+| 14 | Licence | MIT for the code; book text and generated images tracked separately |
+| 15 | Assumptions | All eight Assumed rows confirmed, with 1 and 10 above superseding the name and sign-in rows |
+| 16 | GitHub App | Alex runs `/install-github-app` locally before Phase 4 |
+
+## Original survey
+
+### Already settled by the repository itself (please confirm)
 
 1. **Name.** The repository is `talequilt`. A web search for "talequilt" / "tale quilt" found no app, product or registered mark using the name; quilting books with "tale" in the title exist but are not a conflict for software. Recommendation: keep TaleQuilt as the working name and run a formal search at the UK IPO, EUIPO and USPTO before buying a domain or publishing publicly.
 2. **Visibility.** The repository is already public, which unlocks required reviewers on environments, code scanning and branch protection on the free plan. Recommendation: keep it public.
 
-## Decisions needed
+### Decisions needed
 
 3. **Job spec platform.** Options: (a) GitHub Actions throughout; (b) mirror Azure DevOps; (c) mirror GitLab. Recommendation: (a). It is free for a public repo and has the Claude Code Action. If the role names Azure DevOps or GitLab, say so and the operating-model document will carry a "how this maps" section instead of switching tools.
 4. **Claude sign-in for the pipeline.** Options: (a) Console API key, pay per use, with a monthly spend limit; (b) Claude Pro/Max subscription token from `claude setup-token`; (c) Workload Identity Federation: the workflow exchanges its GitHub OpenID Connect token for a short-lived Anthropic token, no stored secret. Recommendation: (a) for Phase 4, because spend is separable and auditable and the token does not expire with a personal login; try (c) later as the corporate answer, since it needs Console organisation admin.
@@ -22,14 +47,14 @@ Repository state found on 8 Oct 2026: `arhopkins3/talequilt` exists on GitHub, i
 11. **Coverage threshold.** Options: 60, 70 or 80 percent line coverage, measured per project with tests excluded. Recommendation: 70 percent on the API and 60 percent on the React app to start, ratcheted upward and never downward; add patch coverage on changed lines once a coverage service is chosen.
 12. **What counts as small (skips G2).** Options: (a) a `size/small` label you apply at G1; (b) a mechanical rule such as under 50 changed lines and no new files; (c) a path rule. Recommendation: (a) plus a hard floor: nothing touching `.github/`, infrastructure, sign-in, AI calls, the database schema or tests' thresholds is ever small. Docs-only and dependency bumps are always small.
 
-## Found while reading the repository
+### Found while reading the repository
 
 13. **Bootstrapping main.** The repository has no commits, so there is no branch to open a pull request against. The very first commit must land on main directly. Options: (a) you create main from the GitHub web UI with a README, as a company platform team would seed a repo; (b) the agent pushes a single root commit holding the brief, README and licence, then protection is switched on. Recommendation: (a), so the rule "agents never commit to main" is true from the first commit.
 14. **Licence.** Options: MIT, Apache 2.0 (adds a patent grant), or no licence (all rights reserved, unusual for a public portfolio repo). Recommendation: MIT for the code; book text and generated images are tracked separately.
 15. **Standing assumptions.** Confirm the eight rows marked Assumed in the brief's decision table as a block, or name the ones to change.
 16. **GitHub App installation.** `/install-github-app` has to run from Claude Code on your machine, not from this cloud session. It is a Phase 4 prerequisite, not urgent.
 
-## Verified claims from the brief
+### Verified claims from the brief
 
 - GitHub blocks pull request authors from approving their own pull request: confirmed in GitHub's documentation.
 - Print at about 300 PPI with bleed: confirmed against Lulu's PDF creation settings.
