@@ -1,8 +1,9 @@
 # Security scanning (ADR 0019): CodeQL static analysis for C# and JavaScript/TypeScript, a secret scan over the
-# full history, a CycloneDX bill of materials for .NET and npm, and an infrastructure scan that runs on infra/
-# once Phase 3 writes Bicep. Job names are status check names: "CodeQL C#", "CodeQL JavaScript" and
-# "Secret scan" become required on main; "SBOM" and "Infrastructure scan" report without blocking until Phase 3.
+# full history and the working tree, a CycloneDX bill of materials for .NET and npm, and an infrastructure scan
+# that runs on infra/ once Phase 3 writes Bicep. Job names are status check names: "CodeQL C#", "CodeQL JavaScript"
+# and "Secret scan" become required on main; "SBOM" and "Infrastructure scan" report without blocking until Phase 3.
 # Every action is pinned to a commit SHA, with the tag it was taken from as a comment; Dependabot proposes bumps.
+# The gitleaks binary is pinned by release version and SHA-256 and is bumped by hand (Dependabot does not see it).
 name: Security
 
 on:
@@ -11,7 +12,7 @@ on:
   push:
     branches: [main]
   schedule:
-    - cron: "17 6 * * 1" # weekly, so new CodeQL queries and new secret patterns run against unchanged code
+    - cron: "17 6 * * 1" # weekly: re-scan unchanged code with whatever scanner versions are pinned now, and keep the Security tab current
   workflow_dispatch:
 
 permissions:
@@ -64,16 +65,33 @@ jobs:
     name: Secret scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      security-events: write
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0 # the whole history: a secret committed and then removed is still a leak
-      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITLEAKS_ENABLE_COMMENTS: "false" # findings go to the job summary and log, not to pull request comments
-          GITLEAKS_ENABLE_SUMMARY: "true"
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
+      - name: Install gitleaks (release pinned by version and checksum)
+        run: |
+          curl -sSL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v${{ env.GITLEAKS_VERSION }}/gitleaks_${{ env.GITLEAKS_VERSION }}_linux_x64.tar.gz"
+          echo "${{ env.GITLEAKS_SHA256 }}  gitleaks.tgz" | sha256sum -c -
+          tar xzf gitleaks.tgz gitleaks
+          ./gitleaks version
+      - name: Scan every commit in the history
+        run: ./gitleaks git . --redact --no-banner --exit-code 1 --report-format sarif --report-path gitleaks-history.sarif
+      - name: Scan the working tree (catches files that were never committed as such, for example generated ones)
+        if: always()
+        run: ./gitleaks dir . --redact --no-banner --exit-code 1
+      - name: Upload findings to the Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        with:
+          sarif_file: gitleaks-history.sarif
+          category: gitleaks
 
   sbom:
     name: SBOM
