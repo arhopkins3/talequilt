@@ -10,7 +10,8 @@ The app is the workload. The real deliverable is the way it is built: an agentic
 | --- | --- |
 | Understand the project and its rules | [`docs/handover-brief.md`](docs/handover-brief.md) |
 | See how changes flow and where humans decide | [`docs/operating-model.md`](docs/operating-model.md) |
-| See the same thing as one colour-coded picture | [`docs/pipeline-map.html`](docs/pipeline-map.html), open it in a browser |
+| See the same thing as one colour-coded picture | [`docs/pipeline-map.html`](docs/pipeline-map.html), published at the Pages site |
+| Watch the factory live: gates, backlog, checks, agents, ADRs | [`docs/index.html`](docs/index.html), the Factory Console on the Pages site |
 | See why each significant choice was made | [`docs/adr/`](docs/adr/README.md) |
 | Follow the build phase by phase | [`docs/phases/`](docs/phases/) and [`docs/learning-log.md`](docs/learning-log.md) |
 | Work on the code as an agent or a person | [`CLAUDE.md`](CLAUDE.md) |

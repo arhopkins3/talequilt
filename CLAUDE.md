@@ -26,13 +26,16 @@ TaleQuilt: a React + ASP.NET Core + Azure app that turns a manuscript into an il
 - Explain before doing: what a step is, why it exists, the alternatives, and how it differs at company scale.
 - Prefer current, well-supported libraries to hand-rolled code.
 - Flag improvement opportunities for the codebase, security or flexibility as you see them.
+- Name agent workflows `Agent: <role>` and use the `gate/*` labels, so the Factory Console can show them (ADR 0014).
 
 ## Layout
 
 ```
 docs/handover-brief.md     The founding brief
 docs/operating-model.md    Stages, gates, roles, guardrails
-docs/pipeline-map.html     The same, as a status-coloured map; update its status table with each change
+docs/index.html            Factory Console: live view of gates, backlog, checks, agents and ADRs (GitHub Pages)
+docs/pipeline-map.html     The same, as a status-coloured map
+docs/factory-status.js     Static status shared by both pages; update it with each change
 docs/adr/                  Architecture decision records
 docs/phases/               One brief per phase
 docs/learning-log.md       Debrief per phase

@@ -1,0 +1,39 @@
+# Publishes docs/ to GitHub Pages on every merge to main.
+# The Factory Console (docs/index.html) and the map (docs/pipeline-map.html) live there.
+# One-time setup by Alex: Settings, Pages, Source = GitHub Actions.
+# Actions are pinned to major tags for now; Phase 2 pins them to commit SHAs (supply-chain gate).
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy docs to Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs
+      - id: deployment
+        uses: actions/deploy-pages@v4
