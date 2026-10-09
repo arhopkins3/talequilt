@@ -1,0 +1,11 @@
+# Code owners. Alex owns the rules of the pipeline so that agents cannot change
+# their own controls. "Require review from code owners" is switched on in the
+# main branch rule in Phase 4, when pull requests are authored by the Claude
+# GitHub App and Alex is free to approve them. See docs/adr/0013.
+
+/.github/            @arhopkins3
+/.claude/            @arhopkins3
+/CLAUDE.md           @arhopkins3
+/docs/adr/           @arhopkins3
+/docs/operating-model.md @arhopkins3
+/infra/              @arhopkins3

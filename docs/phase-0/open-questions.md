@@ -18,7 +18,7 @@ Repository state found on 8 Oct 2026: `arhopkins3/talequilt` exists on GitHub, i
 | 7 | First book | Alex's own text (manuscript to be supplied before Phase 5) |
 | 8 | Hosting | Azure Container Apps (consumption) for API and worker, Static Web Apps for React, Azure SQL serverless with auto-pause, Storage queues and blobs, Key Vault |
 | 8a | Azure | UK South, pay-as-you-go, with a budget alert in the Phase 3 ADR |
-| 9 | Domain | Subdomains of Alex's personal domain for production and staging (domain and DNS host to be supplied) |
+| 9 | Domain | `talequilt.alexhopkins.app` and `staging.talequilt.alexhopkins.app`; DNS at GoDaddy, following Alex's existing Azure apps on that domain |
 | 10 | Sign-in | Google and Apple, through libraries, no identity broker; allow-list of permitted accounts. Apple needs Apple Developer Programme enrolment |
 | 11 | Coverage | 80 percent line coverage on every project from the start, tests excluded; threshold may only rise |
 | 12 | Small changes | `size/small` label applied by Alex at G1 skips G2. Never small: `.github/`, infrastructure, sign-in, AI calls, database schema, test thresholds. Always small: docs-only, dependency bumps |
@@ -26,6 +26,7 @@ Repository state found on 8 Oct 2026: `arhopkins3/talequilt` exists on GitHub, i
 | 14 | Licence | MIT for the code; book text and generated images tracked separately |
 | 15 | Assumptions | All eight Assumed rows confirmed, with 1 and 10 above superseding the name and sign-in rows |
 | 16 | GitHub App | Alex runs `/install-github-app` locally before Phase 4 |
+| 17 | G3 before Phase 4 | Pull request required on `main` with zero required approvals and no bypass, because Alex authors every pull request until the Claude GitHub App does; approvals become one in Phase 4 (ADR 0013) |
 
 ## Original survey
 

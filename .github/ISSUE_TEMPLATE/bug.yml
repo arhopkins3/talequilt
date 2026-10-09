@@ -1,0 +1,28 @@
+name: Bug
+description: Something behaves differently from its spec or tests.
+title: "fix: "
+labels: ["type/bug", "gate/needs-spec"]
+body:
+  - type: textarea
+    id: observed
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include environment (local, staging, production), book or scene identifiers, and run links.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Logs, screenshots or run links
