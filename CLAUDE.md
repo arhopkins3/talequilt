@@ -42,4 +42,25 @@ docs/learning-log.md       Debrief per phase
 .github/                   Templates, CODEOWNERS, workflows (Alex is code owner)
 ```
 
-Application code arrives in Phase 1 under `src/` (API, worker, web) and `infra/` (Bicep). Build and test commands will be listed here when they exist.
+src/TaleQuilt.Core/        Domain model and EF Core data access (shared)
+src/TaleQuilt.Api/         ASP.NET Core minimal APIs, endpoints grouped by feature
+src/TaleQuilt.Worker/      Background worker host (jobs from Phase 6)
+src/web/                   Vite + React + TypeScript single-page app
+tests/                     One xunit v3 test project per source project
+eng/test.sh                .NET tests with the 80% coverage gate (what CI runs)
+infra/                     Bicep (Phase 3)
+```
+
+## Commands
+
+```
+docker compose up -d                      SQL Server for local development
+dotnet build TaleQuilt.slnx               Build everything; warnings are errors
+dotnet format TaleQuilt.slnx              Format .NET code (CI verifies with --verify-no-changes)
+eng/test.sh                               All .NET tests with coverage thresholds (set TALEQUILT_TEST_CONNECTION to skip Docker)
+dotnet run --project src/TaleQuilt.Api    API on http://localhost:5080
+cd src/web && npm ci && npm run dev       Web app on http://localhost:5173
+cd src/web && npm run lint && npm run typecheck && npm run coverage
+```
+
+Required status checks on `main`: `API build and test` and `Web build and test` (`.github/workflows/ci.yml`). Their job names are part of the gate; do not rename them.

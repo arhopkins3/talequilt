@@ -16,13 +16,25 @@ The app is the workload. The real deliverable is the way it is built: an agentic
 | Follow the build phase by phase | [`docs/phases/`](docs/phases/) and [`docs/learning-log.md`](docs/learning-log.md) |
 | Work on the code as an agent or a person | [`CLAUDE.md`](CLAUDE.md) |
 
+## Run it locally
+
+Prerequisites: .NET 10 SDK, Node 24, Docker. Then:
+
+```bash
+docker compose up -d
+dotnet run --project src/TaleQuilt.Api
+cd src/web && npm ci && npm run dev
+```
+
+Tests: `eng/test.sh` for .NET with the coverage gate, `npm run coverage` in `src/web` for the web app. Details in [`docs/phases/phase-1-skeleton-and-ci.md`](docs/phases/phase-1-skeleton-and-ci.md).
+
 ## Stack
 
 React single-page app, ASP.NET Core API, Azure SQL, Azure Blob Storage and Storage queues with a background worker, all defined in Bicep and deployed to Azure through GitHub Actions. Text work uses Claude. Images come from a separate image model behind a provider interface, with a fake provider for tests and local development.
 
 ## Status
 
-Phase 0, Foundations, complete. Phase 1, Skeleton and CI, starting. No application code yet. Live view: [Factory Console](https://arhopkins3.github.io/talequilt/) and [map](https://arhopkins3.github.io/talequilt/pipeline-map.html).
+Phase 0, Foundations, complete. Phase 1, Skeleton and CI, in review: first application code and the CI gate. Live view: [Factory Console](https://arhopkins3.github.io/talequilt/) and [map](https://arhopkins3.github.io/talequilt/pipeline-map.html).
 
 ## Licence
 

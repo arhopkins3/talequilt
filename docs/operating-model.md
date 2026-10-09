@@ -95,4 +95,4 @@ Two pages on the GitHub Pages site, both in `docs/` and deployed on every merge 
 
 ## Current state
 
-Phase 0. The pull request rule on `main`, CODEOWNERS, templates, ADRs and this document exist. No status checks, agents or deployments yet. Each phase's brief in `docs/phases/` says what it adds and the learning log records what was built.
+Phase 1 in review. The pull request rule on `main` is live and drilled. The application skeleton (API, worker, web) and the CI workflow exist; its two jobs become required status checks when Alex adds them to the ruleset. No agents or deployments yet. Each phase's brief in `docs/phases/` says what it adds and the learning log records what was built.

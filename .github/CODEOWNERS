@@ -9,3 +9,13 @@
 /docs/adr/           @arhopkins3
 /docs/operating-model.md @arhopkins3
 /infra/              @arhopkins3
+# Quality gates: coverage thresholds, analyzer settings, test runner and formatting rules.
+/Directory.Build.props        @arhopkins3
+/tests/Directory.Build.props  @arhopkins3
+/dotnet.config               @arhopkins3
+/.editorconfig               @arhopkins3
+/src/web/vite.config.ts       @arhopkins3
+/src/web/eslint.config.js     @arhopkins3
+/lefthook.yml                 @arhopkins3
+/eng/                        @arhopkins3
+/.config/dotnet-tools.json    @arhopkins3

@@ -18,3 +18,6 @@ An architecture decision record (ADR) captures one significant choice: the conte
 | [0012](0012-domains-and-dns.md) | Domains: subdomains of alexhopkins.app, DNS at GoDaddy | Accepted |
 | [0013](0013-g3-approval-before-agent-authored-prs.md) | Gate G3 before agent-authored pull requests: zero required approvals | Accepted, to be revisited in Phase 4 |
 | [0014](0014-factory-console.md) | Factory Console: a live view of the pipeline, staged from static page to event stream | Accepted |
+| [0015](0015-application-skeleton-stack.md) | Application skeleton: Vite React TypeScript, minimal APIs, three .NET projects | Accepted |
+| [0016](0016-data-access-and-test-database.md) | EF Core with SQL Server; integration tests against a real SQL Server | Accepted |
+| [0017](0017-quality-gates-and-ci.md) | Quality gates: format, lint, build, tests and coverage as required status checks | Accepted |
