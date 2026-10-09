@@ -1,0 +1,92 @@
+# Continuous integration: the checks the main ruleset requires before a pull request can merge (Phase 1).
+# Job names are the status check names, so renaming a job silently stops it being required. Keep them stable.
+# Actions are pinned to major tags for now; Phase 2 pins them to commit SHAs.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Restore (locked)
+        run: dotnet restore TaleQuilt.slnx --locked-mode
+      - name: Build (warnings are errors)
+        run: dotnet build TaleQuilt.slnx --no-restore -c Release --nologo
+      - name: Format check
+        run: dotnet format TaleQuilt.slnx --verify-no-changes --no-restore
+      - name: Test with coverage gate (80% lines per project)
+        run: eng/test.sh --no-build
+      - name: Upload test results and coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-test-results
+          path: |
+            tests/*/TestResults/**
+            TestResults/coverage-report/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+  web:
+    name: Web build and test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/web
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+      - name: Install (locked)
+        run: npm ci
+      - name: Format check
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Type check
+        run: npm run typecheck
+      - name: Test with coverage gate (80% per metric)
+        run: npm run coverage
+      - name: Build
+        run: npm run build
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f coverage/coverage-summary.json ]; then
+            node -e '
+              const s = require("./coverage/coverage-summary.json").total;
+              const row = (k) => `| ${k} | ${s[k].pct}% | ${s[k].covered}/${s[k].total} |`;
+              console.log("## Web coverage (threshold 80%)\n\n| Metric | Covered | Count |\n| --- | --- | --- |\n" + ["lines","statements","functions","branches"].map(row).join("\n"));
+            ' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-coverage
+          path: src/web/coverage/**
+          if-no-files-found: ignore
+          retention-days: 14

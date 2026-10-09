@@ -1,0 +1,13 @@
+# .NET
+bin/
+obj/
+TestResults/
+*.user
+.vs/
+# Node (src/web has its own)
+node_modules/
+# Local secrets and tooling output
+*.local.json
+.env
+.env.*
+!.env.example

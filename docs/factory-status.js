@@ -2,7 +2,7 @@
 // Status vocabulary: done | active | manual | planned. Planned items carry the phase that builds them.
 // Update this file in the same pull request as the change it describes.
 window.FACTORY = {
-  asOf: "9 October 2026, Phase 0 complete",
+  asOf: "9 October 2026, Phase 1 pull request open",
   phases: [
   { n: 0, title: "Foundations", status: "done", exit: "A one-line change reaches main only through a reviewed pull request" },
   { n: 1, title: "Skeleton and CI", status: "active", exit: "A pull request with a failing test or lint error cannot merge" },
@@ -33,17 +33,17 @@ window.FACTORY = {
     agent: { who: "Builder", what: "writes code and tests on a branch and opens a pull request", status: "planned", phase: 4 },
     checks: [
       { t: "Pull request template", status: "done" },
-      { t: "Format and lint on commit", status: "planned", phase: 1 },
+      { t: "Format and lint on commit (lefthook, Claude hook)", status: "active" },
       { t: "Secret check on commit", status: "planned", phase: 2 },
     ],
     next: { auto: "no gate: a pull request opens" } },
   { num: "Stage 4", name: "Verify", status: "active",
     agent: { who: "Reviewer + Security reviewer", what: "critique the pull request against the spec, in a fresh context", status: "planned", phase: 4 },
     checks: [
-      { t: "Build", status: "planned", phase: 1 },
-      { t: "Unit and integration tests", status: "planned", phase: 1 },
-      { t: "Coverage 80%", status: "planned", phase: 1 },
-      { t: "Lint", status: "planned", phase: 1 },
+      { t: "Build", status: "active" },
+      { t: "Unit and integration tests", status: "active" },
+      { t: "Coverage 80%", status: "active" },
+      { t: "Lint", status: "active" },
       { t: "CodeQL static analysis", status: "planned", phase: 2 },
       { t: "Dependency review", status: "planned", phase: 2 },
       { t: "Secret scanning + push protection", status: "planned", phase: 2 },
@@ -84,11 +84,11 @@ window.FACTORY = {
   { t: "Agents cannot change the rules", how: "CODEOWNERS names Alex for .github/, .claude/, CLAUDE.md, ADRs, infra/", status: "manual", phase: 4 },
   { t: "No direct pushes to main", how: "Ruleset: pull request required, force push and delete blocked, no bypass. Drill passed 9 Oct 2026", status: "done" },
   { t: "Reviewer independence", how: "Reviewer runs in a fresh context on the pull request event, never on its own branch", status: "planned", phase: 4 },
-  { t: "Least privilege", how: "Each workflow declares minimal permissions and an explicit allowed-tools list", status: "planned", phase: 1 },
+  { t: "Least privilege", how: "Each workflow declares minimal permissions; allowed-tools lists come with the agent workflows", status: "active", note: "agents in phase 4" },
   { t: "Trigger control", how: "Only actors with write access start an agent run; other text is data", status: "planned", phase: 4 },
   { t: "Bounded runs", how: "Turn limit, job timeout and concurrency group on every agent workflow", status: "planned", phase: 4 },
   { t: "Traceability", how: "Pull request template links issue, spec, plan and run log", status: "done" },
-  { t: "Tests are the contract", how: "Coverage may only rise; reviewer flags deleted or loosened tests", status: "planned", phase: 1 },
+  { t: "Tests are the contract", how: "80% per project enforced in CI; reviewer flags deleted or loosened tests in phase 4", status: "active" },
   { t: "No stored cloud credentials", how: "OpenID Connect to Azure; Key Vault via managed identity", status: "planned", phase: 3 },
   { t: "Book text is untrusted", how: "Separated from instructions; model output never triggers an action unchecked", status: "planned", phase: 5 },
   { t: "Spend is capped", how: "£20 a month on images, £5 per book; Claude key with a spend limit", status: "planned", phase: 4 },

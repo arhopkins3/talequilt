@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TaleQuilt.Core/TaleQuilt.Core.csproj" />
+    <Project Path="src/TaleQuilt.Api/TaleQuilt.Api.csproj" />
+    <Project Path="src/TaleQuilt.Worker/TaleQuilt.Worker.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TaleQuilt.Core.Tests/TaleQuilt.Core.Tests.csproj" />
+    <Project Path="tests/TaleQuilt.Api.Tests/TaleQuilt.Api.Tests.csproj" />
+    <Project Path="tests/TaleQuilt.Worker.Tests/TaleQuilt.Worker.Tests.csproj" />
+  </Folder>
+</Solution>

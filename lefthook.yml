@@ -1,0 +1,16 @@
+# Pre-commit hooks for people working locally (ADR 0017). CI enforces the same checks; this just saves a round trip.
+# Install once: `npm install -g lefthook && lefthook install` (or `brew install lefthook`).
+pre-commit:
+  parallel: true
+  commands:
+    prettier:
+      root: src/web/
+      glob: "*.{ts,tsx,js,css,json,md}"
+      run: npx prettier --check {staged_files}
+    eslint:
+      root: src/web/
+      glob: "*.{ts,tsx}"
+      run: npx eslint {staged_files}
+    dotnet-format:
+      glob: "*.cs"
+      run: dotnet format TaleQuilt.slnx --verify-no-changes --include {staged_files}
