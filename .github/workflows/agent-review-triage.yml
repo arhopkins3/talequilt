@@ -81,6 +81,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # The transcript is part of the run record (traceability guardrail); the repository is public and the
+          # agent reads only code and review text, so there is nothing in it to hide.
+          show_full_output: true
           allowed_bots: "copilot-pull-request-reviewer[bot],copilot-pull-request-reviewer,Copilot"
           prompt: |
             You are the review triage agent. Read `.claude/agents/review-triage.md` first and follow it exactly.
@@ -90,7 +93,18 @@ jobs:
           claude_args: |
             --model claude-sonnet-5-5
             --max-turns 40
-            --allowedTools "Read,Grep,Glob,Bash(eng/triage/list-threads.sh:*),Bash(eng/triage/reply.sh:*),Bash(eng/triage/create-issue.sh:*),Bash(gh pr view:*),Bash(gh pr diff:*)"
+            --allowedTools "Read,Grep,Glob,Bash(eng/triage/list-threads.sh:*),Bash(eng/triage/reply.sh:*),Bash(eng/triage/create-issue.sh:*),Bash(eng/triage/note-skip.sh:*),Bash(gh pr view:*),Bash(gh pr diff:*)"
+
+      - name: Keep the run record
+        if: always() && steps.prereq.outputs.ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: review-triage-pr-${{ env.PR_NUMBER }}-run-${{ github.run_id }}
+          path: |
+            .triage/findings.jsonl
+            ${{ steps.claude.outputs.execution_file }}
+          if-no-files-found: ignore
+          retention-days: 90
 
       - name: Report the Review triage check
         if: always()
@@ -111,7 +125,7 @@ jobs:
             }
             // Blocking is derived here from the verdict recorded by eng/triage/reply.sh, never read from model output.
             const BLOCKING = new Set(['fix-now', 'needs-alex']);
-            const ALLOWED = new Set(['fix-now', 'defer', 'not-an-issue', 'needs-alex']);
+            const ALLOWED = new Set(['fix-now', 'defer', 'not-an-issue', 'needs-alex', 'in-discussion']);
             let conclusion = 'neutral', title = 'Review triage agent not active yet', summary = 'ANTHROPIC_API_KEY is not configured (ADR 0018). Nothing ran.';
             if (ready) {
               let findings = [];
@@ -128,7 +142,9 @@ jobs:
                 conclusion = 'failure'; title = 'Triage recorded an invalid verdict'; summary = invalid.map(f => `comment ${f.comment_id}: "${f.verdict}"`).join('; ');
               } else {
                 conclusion = blocking.length ? 'failure' : 'success';
-                title = `${findings.length} finding(s) triaged, ${blocking.length} need action`;
+                const seen = findings.filter(f => f.verdict === 'in-discussion').length;
+                const triaged = findings.length - seen;
+                title = `${triaged} finding(s) triaged, ${blocking.length} need action${seen ? `, ${seen} already in discussion` : ''}`;
                 const rows = findings.map(f => `| ${f.verdict} | ${f.comment_id} | ${f.summary || ''} ${f.issue ? `([issue](${f.issue}))` : ''} |`).join('\n');
                 summary = `| Verdict | Comment | Summary |\n| --- | --- | --- |\n${rows || '| none | | no unresolved review threads |'}`;
               }
