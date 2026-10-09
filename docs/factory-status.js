@@ -2,10 +2,10 @@
 // Status vocabulary: done | active | manual | planned. Planned items carry the phase that builds them.
 // Update this file in the same pull request as the change it describes.
 window.FACTORY = {
-  asOf: "9 October 2026, Phase 0 pull request open",
+  asOf: "9 October 2026, Phase 0 complete",
   phases: [
-  { n: 0, title: "Foundations", status: "active", exit: "A one-line change reaches main only through a reviewed pull request" },
-  { n: 1, title: "Skeleton and CI", status: "planned", exit: "A pull request with a failing test or lint error cannot merge" },
+  { n: 0, title: "Foundations", status: "done", exit: "A one-line change reaches main only through a reviewed pull request" },
+  { n: 1, title: "Skeleton and CI", status: "active", exit: "A pull request with a failing test or lint error cannot merge" },
   { n: 2, title: "Security gates", status: "planned", exit: "A planted fake secret and a known-vulnerable dependency are both blocked" },
   { n: 3, title: "Deploy path", status: "planned", exit: "A change reaches production only after Alex approves, and a failed smoke test rolls it back" },
   { n: 4, title: "Agent workflows", status: "planned", exit: "An issue becomes a merged, deployed change with Alex acting only at G1 to G4" },
@@ -18,7 +18,7 @@ window.FACTORY = {
   { num: "Stage 1", name: "Spec", status: "active",
     agent: { who: "Spec agent", what: "turns an issue into a user story with testable acceptance criteria", status: "planned", phase: 4 },
     checks: [
-      { t: "Issue template complete", status: "active" },
+      { t: "Issue template complete", status: "active" }
       { t: "Criteria are testable", status: "manual", phase: 4 },
     ],
     next: { gate: "G1", label: "Alex approves the spec", status: "manual", detail: "label gate in phase 4" } },
@@ -26,13 +26,13 @@ window.FACTORY = {
     agent: { who: "Planner", what: "proposes design, task list, test plan and a draft ADR", status: "planned", phase: 4 },
     checks: [
       { t: "ADR present when architecture changes", status: "manual", phase: 4 },
-      { t: "Small-change rule (ADR 0010)", status: "active" },
+      { t: "Small-change rule (ADR 0010)", status: "done" },
     ],
     next: { gate: "G2", label: "Alex approves the plan", status: "manual", detail: "skipped for size/small" } },
   { num: "Stage 3", name: "Build", status: "active",
     agent: { who: "Builder", what: "writes code and tests on a branch and opens a pull request", status: "planned", phase: 4 },
     checks: [
-      { t: "Pull request template", status: "active" },
+      { t: "Pull request template", status: "done" },
       { t: "Format and lint on commit", status: "planned", phase: 1 },
       { t: "Secret check on commit", status: "planned", phase: 2 },
     ],
@@ -50,7 +50,7 @@ window.FACTORY = {
       { t: "Infrastructure scan", status: "planned", phase: 2 },
       { t: "Licence check + SBOM", status: "planned", phase: 2 },
     ],
-    next: { gate: "G3", label: "Alex reviews and merges", status: "active", detail: "pull request required; 1 approval in phase 4" } },
+    next: { gate: "G3", label: "Alex reviews and merges", status: "done", detail: "pull request required on main; 1 approval in phase 4" } },
   { num: "Stage 5", name: "Staging", status: "planned", phase: 3,
     agent: { who: "Release agent", what: "writes release notes after the deploy", status: "planned", phase: 4 },
     checks: [
@@ -75,19 +75,19 @@ window.FACTORY = {
       { t: "Cost alerts", status: "planned", phase: 3 },
       { t: "Monitoring and dashboards", status: "planned", phase: 8 },
       { t: "Pipeline metrics", status: "planned", phase: 4 },
-      { t: "Factory console (live view)", status: "active" },
+      { t: "Factory console (live view)", status: "done" },
     ],
     next: null },
 ],
   guardrails: [
-  { t: "Agents never approve or merge", how: "No approval permission; merging is Alex's act; production environment names only Alex", status: "active" },
-  { t: "Agents cannot change the rules", how: "CODEOWNERS names Alex for .github/, .claude/, CLAUDE.md, ADRs, infra/", status: "active", note: "enforced in phase 4" },
-  { t: "No direct pushes to main", how: "Ruleset: pull request required, force push and delete blocked, no bypass", status: "active" },
+  { t: "Agents never approve or merge", how: "No approval permission; merging is Alex's act; production environment names only Alex", status: "done", note: "environment in phase 3" },
+  { t: "Agents cannot change the rules", how: "CODEOWNERS names Alex for .github/, .claude/, CLAUDE.md, ADRs, infra/", status: "manual", phase: 4 },
+  { t: "No direct pushes to main", how: "Ruleset: pull request required, force push and delete blocked, no bypass. Drill passed 9 Oct 2026", status: "done" },
   { t: "Reviewer independence", how: "Reviewer runs in a fresh context on the pull request event, never on its own branch", status: "planned", phase: 4 },
   { t: "Least privilege", how: "Each workflow declares minimal permissions and an explicit allowed-tools list", status: "planned", phase: 1 },
   { t: "Trigger control", how: "Only actors with write access start an agent run; other text is data", status: "planned", phase: 4 },
   { t: "Bounded runs", how: "Turn limit, job timeout and concurrency group on every agent workflow", status: "planned", phase: 4 },
-  { t: "Traceability", how: "Pull request template links issue, spec, plan and run log", status: "active" },
+  { t: "Traceability", how: "Pull request template links issue, spec, plan and run log", status: "done" },
   { t: "Tests are the contract", how: "Coverage may only rise; reviewer flags deleted or loosened tests", status: "planned", phase: 1 },
   { t: "No stored cloud credentials", how: "OpenID Connect to Azure; Key Vault via managed identity", status: "planned", phase: 3 },
   { t: "Book text is untrusted", how: "Separated from instructions; model output never triggers an action unchecked", status: "planned", phase: 5 },

@@ -1,6 +1,6 @@
 # Phase 0: Foundations
 
-**Exit test:** a one-line change reaches `main` only through a reviewed pull request.
+**Exit test:** a one-line change reaches `main` only through a reviewed pull request. **Passed 9 October 2026**: ruleset applied, drill steps 1 to 3 rejected, step 4 run on the close-out pull request.
 
 ## Brief
 
