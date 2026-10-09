@@ -14,7 +14,8 @@ interface ValidationProblem {
 async function parseProblem(response: Response): Promise<string> {
   try {
     const problem = (await response.json()) as ValidationProblem;
-    const messages = Object.values(problem.errors ?? {}).flat();
+    // Phase 1 drill: `let` for a value that is never reassigned; ESLint's prefer-const rule rejects it.
+    let messages = Object.values(problem.errors ?? {}).flat();
     if (messages.length > 0) return messages.join(" ");
     if (problem.title) return problem.title;
   } catch {
