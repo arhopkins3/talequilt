@@ -25,7 +25,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy docs to Pages
-    # Manual runs deploy main as it is; CI-triggered runs deploy only after a green CI run.
+    # Manual runs deploy main as it is, whichever branch the run was started from; CI-triggered runs deploy only after a green CI run.
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -36,7 +36,8 @@ jobs:
       - uses: actions/checkout@v5
         with:
           # The commit CI just tested, not whatever main points at by the time this job starts.
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # A manual run always deploys main, never the branch it was dispatched from.
+          ref: ${{ github.event.workflow_run.head_sha || 'main' }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:
