@@ -1,15 +1,16 @@
-# Publishes docs/ to GitHub Pages on every merge to main.
+# Publishes docs/ to GitHub Pages after CI passes on main (ADR 0014).
 # The Factory Console (docs/index.html) and the map (docs/pipeline-map.html) live there.
+# A deploy never runs ahead of CI: this workflow starts when the CI workflow completes on main,
+# deploys only if CI succeeded, and deploys the exact commit CI tested.
 # One-time setup by Alex: Settings, Pages, Source = GitHub Actions.
 # Actions are pinned to major tags for now; Phase 2 pins them to commit SHAs (supply-chain gate).
 name: Pages
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
-    paths:
-      - "docs/**"
-      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -24,6 +25,8 @@ concurrency:
 jobs:
   deploy:
     name: Deploy docs to Pages
+    # Manual runs deploy main as it is, whichever branch the run was started from; CI-triggered runs deploy only after a green CI run.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
@@ -31,6 +34,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          # The commit CI just tested, not whatever main points at by the time this job starts.
+          # A manual run always deploys main, never the branch it was dispatched from.
+          ref: ${{ github.event.workflow_run.head_sha || 'main' }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v4
         with:

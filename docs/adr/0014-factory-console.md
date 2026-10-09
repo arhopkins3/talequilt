@@ -33,6 +33,8 @@ Token handling: the console works without a token at GitHub's anonymous rate lim
 
 **Live flow (added 9 October 2026).** The console opens with one lane per open pull request: stations for the push, the CI checks, Copilot's review, the triage agent, open threads, Alex's review and merge, and the merge itself, followed by a lane for `main` (CI, Pages, and the Phase 3 staging and production stations as not-yet). Each station is in one of six states: done, running now, waiting for someone, failed or blocked, skipped, or not yet. Running stations pulse, connectors animate where work is flowing, and the reduced-motion preference turns motion off. The states come from GitHub's check runs, reviews and review comments, so the lane moves on its own as the pipeline acts.
 
+**Pages waits for CI (added 9 October 2026).** The live flow drew CI then Pages in sequence while the two workflows in fact ran in parallel on each merge, so the console showed the site live before CI had finished. Rather than redraw the lane with a fork, the Pages workflow now runs on `workflow_run` of CI on `main`, deploys only when CI succeeded, and checks out the commit CI tested. The lane is now a true sequence, and it sets the rule Phase 3 inherits: no deploy stage starts ahead of CI. The cost is that the console updates a couple of minutes later after each merge, and that every green CI run on `main` now deploys, not only those that changed `docs/`.
+
 ## Consequences
 
 The pipeline gains an instrument panel before it gains agents, and the panel improves as each phase adds data. Every later phase has a place to show its results. The console is documentation, so it ships with the same pull request as the thing it describes.
