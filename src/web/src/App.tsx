@@ -4,6 +4,7 @@ import { createBook, getHealth, listBooks, type Book, type Health } from "./api"
 export function App() {
   const [health, setHealth] = useState<Health | "checking">("checking");
   const [books, setBooks] = useState<Book[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [title, setTitle] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -19,6 +20,9 @@ export function App() {
       })
       .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof Error ? e.message : "Could not load books.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoaded(true);
       });
     return () => {
       cancelled = true;
@@ -48,7 +52,9 @@ export function App() {
       </p>
 
       <h2>Books</h2>
-      {books.length === 0 ? (
+      {!loaded ? (
+        <p>Loading books…</p>
+      ) : books.length === 0 ? (
         <p>No books yet. Add the first one below.</p>
       ) : (
         <ul>
@@ -70,7 +76,7 @@ export function App() {
           maxLength={200}
           required
         />
-        <button type="submit" disabled={busy || title.trim().length === 0}>
+        <button type="submit" disabled={!loaded || busy || title.trim().length === 0}>
           Add book
         </button>
       </form>

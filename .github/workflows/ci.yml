@@ -90,3 +90,15 @@ jobs:
           path: src/web/coverage/**
           if-no-files-found: ignore
           retention-days: 14
+
+  docs:
+    name: Docs and status check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Status file, Markdown links and workflow YAML
+        run: eng/check-docs.sh

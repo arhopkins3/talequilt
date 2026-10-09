@@ -24,11 +24,13 @@ Two constraints shaped the tooling. First, xunit v3 on the .NET 10 SDK runs thro
 
 ## Decision
 
-**Status checks.** One workflow, `CI`, with two jobs whose names are the required checks: **API build and test** and **Web build and test**. Alex adds both to the `main` ruleset's required status checks. Renaming a job is a change to the gate and is reviewed as such.
+**Status checks.** One workflow, `CI`, with three jobs whose names are the required checks: **API build and test**, **Web build and test** and **Docs and status check**. Alex adds all three to the `main` ruleset's required status checks. Renaming a job is a change to the gate and is reviewed as such.
 
 **API job.** Restore in locked mode (lock files committed), build with warnings as errors, `dotnet format --verify-no-changes`, then `eng/test.sh`, which runs every test project under coverlet with the 80 percent line threshold, measuring only the assembly each project exists to test (`TaleQuilt.X.Tests` measures `TaleQuilt.X`).
 
 **Web job.** `npm ci`, Prettier check, ESLint, TypeScript, Vitest with coverage thresholds, then the production build.
+
+**Docs job** (`Docs and status check`, added after a hand edit to `docs/factory-status.js` dropped a comma and blanked the published map). `eng/check-docs.sh` loads the status file and validates every status value, checks every relative Markdown link resolves, and parses every workflow and issue template YAML.
 
 **Exclusions**, the complete list: generated EF migrations (`**/Migrations/*.cs`), code marked `[ExcludeFromCodeCoverage]`, which is permitted only on process entry points and design-time factories, the web entry point `src/main.tsx`, test helpers and the Vite type declaration. Adding anything else needs an ADR.
 

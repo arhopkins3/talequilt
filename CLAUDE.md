@@ -40,6 +40,7 @@ docs/adr/                  Architecture decision records
 docs/phases/               One brief per phase
 docs/learning-log.md       Debrief per phase
 .github/                   Templates, CODEOWNERS, workflows (Alex is code owner)
+.claude/agents/            Agent role definitions; review-triage is live (ADR 0018)
 ```
 
 src/TaleQuilt.Core/        Domain model and EF Core data access (shared)
@@ -63,4 +64,4 @@ cd src/web && npm ci && npm run dev       Web app on http://localhost:5173
 cd src/web && npm run lint && npm run typecheck && npm run coverage
 ```
 
-Required status checks on `main`: `API build and test` and `Web build and test` (`.github/workflows/ci.yml`). Their job names are part of the gate; do not rename them.
+Required status checks on `main`: `API build and test`, `Web build and test` and `Docs and status check` (`.github/workflows/ci.yml`). Their job names are part of the gate; do not rename them. `eng/check-docs.sh` runs the docs check locally.

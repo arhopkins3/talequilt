@@ -2,7 +2,7 @@
 // Status vocabulary: done | active | manual | planned. Planned items carry the phase that builds them.
 // Update this file in the same pull request as the change it describes.
 window.FACTORY = {
-  asOf: "9 October 2026, Phase 1 pull request open",
+  asOf: "9 October 2026, Phase 1 merged; review fixes and first agent in review",
   phases: [
   { n: 0, title: "Foundations", status: "done", exit: "A one-line change reaches main only through a reviewed pull request" },
   { n: 1, title: "Skeleton and CI", status: "active", exit: "A pull request with a failing test or lint error cannot merge" },
@@ -18,7 +18,7 @@ window.FACTORY = {
   { num: "Stage 1", name: "Spec", status: "active",
     agent: { who: "Spec agent", what: "turns an issue into a user story with testable acceptance criteria", status: "planned", phase: 4 },
     checks: [
-      { t: "Issue template complete", status: "active" }
+      { t: "Issue template complete", status: "active" },
       { t: "Criteria are testable", status: "manual", phase: 4 },
     ],
     next: { gate: "G1", label: "Alex approves the spec", status: "manual", detail: "label gate in phase 4" } },
@@ -38,8 +38,10 @@ window.FACTORY = {
     ],
     next: { auto: "no gate: a pull request opens" } },
   { num: "Stage 4", name: "Verify", status: "active",
-    agent: { who: "Reviewer + Security reviewer", what: "critique the pull request against the spec, in a fresh context", status: "planned", phase: 4 },
+    agent: { who: "Review triage (Copilot findings)", what: "verifies each external review finding and replies with a verdict; reviewer and security reviewer agents follow in phase 4", status: "active" },
     checks: [
+      { t: "Review triage status check", status: "active" },
+      { t: "Reviewer + security reviewer agents", status: "planned", phase: 4 },
       { t: "Build", status: "active" },
       { t: "Unit and integration tests", status: "active" },
       { t: "Coverage 80%", status: "active" },
@@ -67,7 +69,7 @@ window.FACTORY = {
       { t: "Smoke tests after deploy", status: "planned", phase: 3 },
       { t: "Automatic rollback", status: "planned", phase: 3 },
     ],
-    next: { gate: "G4", label: "Alex approves the deployment", status: "planned", detail: "production environment, phase 3" } },
+    next: { gate: "G4", label: "Alex approves the deployment", status: "planned", phase: 3, detail: "production environment, phase 3" } },
   { num: "Stage 7", name: "Operate", status: "planned", phase: 8,
     agent: { who: "Triage agent", what: "turns alerts and failed runs into issues with a diagnosis", status: "planned", phase: 4 },
     checks: [
