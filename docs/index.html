@@ -62,10 +62,10 @@ button:hover { border-color: var(--accent); }
 button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
 input[type=password], input[type=text] { font: inherit; font-family: var(--mono); font-size: 0.8rem; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; }
 
-main { max-width: 1400px; margin: 0 auto; display: grid; gap: 14px; padding-top: 14px; }
+main { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding-top: 14px; }
 .grid { display: grid; gap: 14px; grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
 .panel { grid-column: span 12; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; display: grid; grid-template-rows: auto 1fr; min-width: 0; }
-.panel > header { display: flex; gap: 10px; align-items: baseline; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.panel > header { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding: 10px 14px; border-bottom: 1px solid var(--line); min-width: 0; }
 .panel > header .count { font-family: var(--mono); font-size: 0.74rem; color: var(--muted); }
 .panel > header .right { margin-left: auto; font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
 .panel > .body { padding: 12px 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
@@ -134,6 +134,38 @@ main { max-width: 1400px; margin: 0 auto; display: grid; gap: 14px; padding-top:
 .dialog ol { margin: 0; padding-left: 18px; font-size: 0.85rem; color: var(--muted); display: grid; gap: 4px; }
 .dialog .actions { display: flex; gap: 8px; flex-wrap: wrap; }
 code { font-family: var(--mono); font-size: 0.8em; background: var(--surface-2); padding: 1px 4px; border-radius: 3px; }
+
+/* Live flow: one lane per pull request, stations joined by connectors. Motion marks what is moving now. */
+.flow { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.lane { display: grid; gap: 6px; min-width: 0; }
+.lane-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.lane-head .title { font-weight: 600; }
+.lane-head .sub { font-size: 0.78rem; color: var(--muted); }
+.track { display: flex; align-items: stretch; overflow-x: auto; padding: 8px 2px 10px; min-width: 0; max-width: 100%; }
+.station { flex: 0 0 140px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--surface-2); padding: 8px 10px; display: grid; gap: 3px; align-content: start; min-width: 0; --pulse: transparent; }
+.station .k { font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.station .v { font-weight: 600; font-size: 0.85rem; line-height: 1.2; }
+.station .d { font-size: 0.72rem; color: var(--muted); overflow-wrap: anywhere; }
+.station.done { border-color: var(--ok); background: var(--ok-soft); }
+.station.active { border-color: var(--warn); background: var(--warn-soft); --pulse: var(--warn); animation: pulse 1.4s ease-in-out infinite; }
+.station.waiting { border-color: var(--info); background: var(--info-soft); --pulse: var(--info); animation: pulse 3s ease-in-out infinite; }
+.station.failed { border-color: var(--bad); background: var(--bad-soft); }
+.station.skipped { border-color: var(--neutral); background: var(--neutral-soft); }
+.station.pending { border-style: dashed; color: var(--muted); }
+.station.pending .v { color: var(--muted); font-weight: 500; }
+@keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--pulse) 28%, transparent); } }
+.link { flex: 0 0 36px; align-self: center; height: 2px; position: relative; background: var(--line); margin: 0 1px; }
+.link::after { content: ""; position: absolute; right: -2px; top: -4px; border: 5px solid transparent; border-right: 0; border-left-color: var(--line); }
+.link.done { background: var(--ok); } .link.done::after { border-left-color: var(--ok); }
+.link.flow { background: repeating-linear-gradient(90deg, var(--warn) 0 6px, transparent 6px 12px); animation: march 0.7s linear infinite; } .link.flow::after { border-left-color: var(--warn); }
+.link.slow { background: repeating-linear-gradient(90deg, var(--info) 0 6px, transparent 6px 12px); animation: march 1.8s linear infinite; } .link.slow::after { border-left-color: var(--info); }
+.link.pending { background: repeating-linear-gradient(90deg, var(--line) 0 4px, transparent 4px 8px); }
+.link.failed { background: var(--bad); } .link.failed::after { border-left-color: var(--bad); }
+@keyframes march { to { background-position: 12px 0; } }
+.flowlegend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.78rem; color: var(--muted); }
+.flowlegend .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1.5px solid; vertical-align: -2px; margin-right: 5px; }
+@media (prefers-reduced-motion: reduce) { .station, .link { animation: none !important; } }
+
 footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 </style>
@@ -174,6 +206,21 @@ footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--li
   </section>
 
   <section class="attention" id="attention" aria-label="Needs attention"></section>
+
+  <section class="panel">
+    <header><h2>Live flow</h2><span class="count" id="flowcount"></span><span class="right">one lane per open pull request, then main</span></header>
+    <div class="body">
+      <div class="flowlegend" aria-label="Flow legend">
+        <span><i class="sw" style="border-color:var(--ok);background:var(--ok-soft)"></i>done</span>
+        <span><i class="sw" style="border-color:var(--warn);background:var(--warn-soft)"></i>running now</span>
+        <span><i class="sw" style="border-color:var(--info);background:var(--info-soft)"></i>waiting for someone</span>
+        <span><i class="sw" style="border-color:var(--bad);background:var(--bad-soft)"></i>failed or blocked</span>
+        <span><i class="sw" style="border-color:var(--neutral);background:var(--neutral-soft)"></i>skipped</span>
+        <span><i class="sw" style="border-color:var(--line);border-style:dashed"></i>not yet</span>
+      </div>
+      <div class="flow" id="flow"><div class="skeleton"></div><div class="skeleton"></div></div>
+    </div>
+  </section>
 
   <div class="grid">
     <section class="panel span8">
@@ -333,19 +380,22 @@ footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--li
       ];
       replace("board", board);
       setText("boardcount", `${issues.length} issues · ${openPRs.length} open PRs · ${merged.length} merged`);
-      await loadPRs(openPRs);
-    } catch (e) { replace("board", errRow(e, "issues and pull requests")); }
+      await loadPRs(openPRs, merged);
+    } catch (e) { replace("board", errRow(e, "issues and pull requests")); replace("flow", errRow(e, "the live flow")); }
   }
 
-  async function loadPRs(openPRs) {
+  async function loadPRs(openPRs, merged) {
+    let detailed = [];
     try {
-      const detailed = await Promise.all(openPRs.slice(0, 10).map(async p => {
-        const [full, checks, files] = await Promise.all([
+      detailed = await Promise.all(openPRs.slice(0, 10).map(async p => {
+        const [full, checks, files, reviews, comments] = await Promise.all([
           gh(`/pulls/${p.number}`),
           gh(`/commits/${p.head.sha}/check-runs?per_page=50`).catch(() => ({ check_runs: [] })),
           token ? gh(`/pulls/${p.number}/files?per_page=100`).catch(() => []) : Promise.resolve([]),
+          gh(`/pulls/${p.number}/reviews?per_page=100`).catch(() => []),
+          gh(`/pulls/${p.number}/comments?per_page=100`).catch(() => []),
         ]);
-        return { p: full, checks: checks.check_runs || [], adrs: files.filter(f => /^docs\/adr\/\d{4}-/.test(f.filename)).length };
+        return { p: full, checks: checks.check_runs || [], adrs: files.filter(f => /^docs\/adr\/\d{4}-/.test(f.filename)).length, reviews, comments };
       }));
       let failing = 0, ready = 0;
       const rows = detailed.map(({ p, checks, adrs }) => {
@@ -365,6 +415,95 @@ footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--li
       attention.failing = failing; attention.prsReady = ready;
     } catch (e) { replace("prs", errRow(e, "pull request details")); }
     renderAttention();
+    await renderFlow(detailed, merged || []);
+  }
+
+  // --- live flow: the state of each change as stations on a track ---
+  const REVIEWER = "copilot-pull-request-reviewer[bot]";
+  const CI_CHECKS = ["API build and test", "Web build and test", "Docs and status check"];
+  const BAD = c => ["failure", "timed_out", "cancelled", "action_required"].includes(c.conclusion);
+  const station = (k, v, state, d) => ({ k, v, state, d });
+
+  function prStations({ p, checks, reviews, comments }) {
+    const out = [];
+    out.push(station("Pushed", `${p.head.sha.slice(0, 7)}`, "done", `${p.commits} commit${p.commits === 1 ? "" : "s"} · ${fmtAgo(p.updated_at)}`));
+
+    const ci = checks.filter(c => CI_CHECKS.includes(c.name));
+    const ciState = ci.some(BAD) ? "failed" : ci.some(c => c.status !== "completed") ? "active" : ci.length >= CI_CHECKS.length && ci.every(c => c.conclusion === "success") ? "done" : ci.length ? "active" : "pending";
+    const ciText = { failed: `${ci.filter(BAD).length} failing`, active: `${ci.filter(c => c.status !== "completed").length || ci.length} running`, done: "all green", pending: "not started" }[ciState];
+    out.push(station("CI checks", ciText, ciState, ci.map(c => c.name.replace(" build and test", "").replace(" and status check", "")).join(" · ") || "build, test, lint, coverage, docs"));
+
+    const copilotCheck = checks.find(c => c.name === "copilot-pull-request-reviewer");
+    const reviewedHead = reviews.some(r => r.user?.login === REVIEWER && r.commit_id === p.head.sha);
+    const reviewedAny = reviews.some(r => r.user?.login === REVIEWER);
+    const cpState = reviewedHead ? "done" : copilotCheck && copilotCheck.status !== "completed" ? "active" : reviewedAny ? "skipped" : "pending";
+    out.push(station("Copilot review", { done: "reviewed", active: "reviewing", skipped: "earlier commit", pending: "awaiting" }[cpState], cpState,
+      cpState === "skipped" ? "reviewed an earlier push, not this one" : cpState === "done" ? `${comments.filter(c => c.user?.login === REVIEWER && !c.in_reply_to_id).length} finding(s)` : "reviews on open and when asked"));
+
+    const tri = checks.find(c => c.name === "Review triage");
+    const triTitle = (tri?.output?.title || "").trim();
+    const trState = !tri ? "pending" : tri.status !== "completed" ? (/waiting/i.test(triTitle) ? "waiting" : "active") : tri.conclusion === "success" ? "done" : tri.conclusion === "neutral" ? "skipped" : "failed";
+    out.push(station("Triage agent", { pending: "not started", waiting: "waiting for reviewer", active: "triaging", done: "verdicts posted", skipped: "did not run", failed: "needs action" }[trState], trState, triTitle || "verifies each finding, replies with a verdict"));
+
+    const top = comments.filter(c => c.user?.login === REVIEWER && !c.in_reply_to_id);
+    const unanswered = top.filter(t => !comments.some(c => c.in_reply_to_id === t.id));
+    const thState = !top.length ? "pending" : unanswered.length ? "waiting" : "done";
+    out.push(station("Threads", !top.length ? "none" : unanswered.length ? `${unanswered.length} unanswered` : `${top.length} answered`, thState, top.length ? "Alex resolves each thread" : "no review findings"));
+
+    let alState, alText, alDetail;
+    if (p.draft) { alState = "pending"; alText = "draft"; alDetail = "mark ready for review"; }
+    else if (p.mergeable_state === "dirty") { alState = "failed"; alText = "conflict"; alDetail = "merge main into the branch"; }
+    else if (p.mergeable_state === "clean") { alState = "waiting"; alText = "ready for Alex"; alDetail = "review, then merge (gate G3)"; }
+    else if (p.mergeable_state === "blocked") { alState = "waiting"; alText = "blocked"; alDetail = "required checks or unresolved threads"; }
+    else if (p.mergeable_state === "unstable") { alState = "waiting"; alText = "checks pending"; alDetail = "a check is still running or failed"; }
+    else { alState = "pending"; alText = p.mergeable_state || "unknown"; alDetail = "GitHub is computing mergeability"; }
+    out.push(station("Alex: G3", alText, alState, alDetail));
+    out.push(station("Merged", "not yet", "pending", "lands on main"));
+    return out;
+  }
+
+  function mainStations(mergedPR, runs) {
+    const latest = name => runs ? runs.filter(r => r.name === name && r.head_branch === "main").sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] : undefined;
+    const runState = r => !runs ? "skipped" : !r ? "pending" : r.status !== "completed" ? "active" : r.conclusion === "success" ? "done" : "failed";
+    const ci = latest("CI"), pages = latest("Pages");
+    return [
+      station("Merged", mergedPR ? `#${mergedPR.number}` : "nothing yet", mergedPR ? "done" : "pending", mergedPR ? `${mergedPR.title.slice(0, 48)} · ${fmtAgo(mergedPR.merged_at)}` : "the first merge starts this lane"),
+      station("CI on main", { pending: "not run", active: "running", done: "green", failed: "red", skipped: "unavailable" }[runState(ci)], runState(ci), ci ? `${ci.head_sha.slice(0, 7)} · ${fmtAgo(ci.created_at)}` : runs ? "build, test, docs" : "could not read workflow runs"),
+      station("Pages deploy", { pending: "not run", active: "deploying", done: "live", failed: "failed", skipped: "unavailable" }[runState(pages)], runState(pages), pages ? `console and map · ${fmtAgo(pages.created_at)}` : runs ? "console and map" : "could not read workflow runs"),
+      station("Staging", "phase 3", "pending", "Container Apps, Playwright, ZAP"),
+      station("Alex: G4", "phase 3", "pending", "approves the production deploy"),
+      station("Production", "phase 3", "pending", "smoke tests, rollback"),
+    ];
+  }
+
+  function linkState(a, b) {
+    if (a.state === "failed") return "failed";
+    if (a.state === "done" && b.state === "done") return "done";
+    if (a.state === "done" && b.state === "active") return "flow";
+    if (a.state === "done" && b.state === "waiting") return "slow";
+    return "pending";
+  }
+
+  function laneEl(title, sub, href, stations) {
+    const track = el("div", { class: "track" });
+    stations.forEach((st, i) => {
+      if (i) track.append(el("div", { class: `link ${linkState(stations[i - 1], st)}` }));
+      track.append(el("div", { class: `station ${st.state}`, title: `${st.k}: ${st.v}` }, el("div", { class: "k" }, st.k), el("div", { class: "v" }, st.v), el("div", { class: "d" }, st.d || "")));
+    });
+    return el("div", { class: "lane" }, el("div", { class: "lane-head" }, href ? el("a", { class: "title", href }, title) : el("span", { class: "title" }, title), el("span", { class: "sub" }, sub)), track);
+  }
+
+  async function renderFlow(detailed, merged) {
+    try {
+      const runsRes = await gh("/actions/runs?branch=main&per_page=10").catch(() => null);
+      const runs = runsRes ? (runsRes.workflow_runs || []) : null;
+      const lanes = detailed.map(d => laneEl(`#${d.p.number} ${d.p.title}`, `${d.p.head.ref} → ${d.p.base.ref}`, d.p.html_url, prStations(d)));
+      const lastMerged = [...merged].sort((a, b) => new Date(b.merged_at) - new Date(a.merged_at))[0];
+      lanes.push(laneEl("main", "after the merge: CI, Pages, and the Phase 3 deploy path", lastMerged ? lastMerged.html_url : null, mainStations(lastMerged, runs)));
+      if (!detailed.length) lanes.unshift(el("div", { class: "empty" }, "No open pull requests. The next one appears here the moment it is opened, and moves station by station as checks, Copilot, the triage agent and Alex act on it."));
+      replace("flow", lanes);
+      setText("flowcount", `${detailed.length} in flight`);
+    } catch (e) { replace("flow", errRow(e, "the live flow")); }
   }
 
   async function loadRuns() {
