@@ -38,14 +38,14 @@ Settled in the Phase 2 survey on 9 October 2026: all seven as recommended, recor
 3. **Secret scanning.** (a) GitHub's secret scanning and push protection alone; (b) add a scanner in CI (gitleaks) as a second layer that also catches generic high-entropy strings and runs on the local pre-commit hook. Recommendation: (b), both layers; GitHub stops the push, the CI scanner catches patterns GitHub does not know.
 4. **Licence policy.** An allow list of licences compatible with MIT redistribution (MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, Unlicense, and Microsoft's .NET library licence), with anything else failing the dependency review until Alex adds it. Recommendation: the allow list, enforced by the dependency review action for new packages and by a licence scan of the full tree.
 5. **SBOM format and use.** (a) SPDX, the format GitHub's own export uses; (b) CycloneDX, with mature generators for .NET and npm. Recommendation: (b) generated on every CI run and kept as a build artifact; signing and attestation wait for Phase 3 when there is a release to attach them to.
-6. **Which new checks are required for merge.** Recommendation: CodeQL, dependency review (vulnerabilities and licences) and the secret scan become required; SBOM generation and the infrastructure scan report but do not block until Phase 3 gives them real input.
+6. **Which new checks are required for merge.** Recommendation: CodeQL, dependency review (vulnerabilities and licences) and the secret scan become required; the pin check rides inside the already-required `Docs and status check`; SBOM generation and the infrastructure scan report but do not block until Phase 3 gives them real input.
 7. **Branches up to date before merging.** Phase 1 deferred this. Recommendation: leave it off and do not add a merge queue; with one author and small pull requests the risk it guards against (two green pull requests that break when combined) is low, and the cost (a rebase and a full CI cycle before every merge) is paid on every change. Revisit when agents open pull requests in parallel in Phase 4.
 
 ## Build
 
 Three pull requests, each small enough to review in one sitting.
 
-1. **Supply chain.** Pin every action in every workflow to a commit SHA with the tag in a comment; Dependabot configuration for npm, NuGet and GitHub Actions with grouped weekly updates; dependency review on pull requests with the licence allow list.
+1. **Supply chain.** Pin every action in every workflow to a commit SHA with the tag in a comment, and add a pin check to `eng/check-docs.sh` that fails on any `uses:` without a 40-character SHA, so the already-required `Docs and status check` is the gate that keeps them pinned; Dependabot configuration for npm, NuGet and GitHub Actions with grouped weekly updates; dependency review on pull requests with the licence allow list.
 2. **Scanning.** The CodeQL workflow for C# and JavaScript/TypeScript; the secret scan in CI and on the pre-commit hook; the infrastructure scan wired to `infra/` and passing trivially until Phase 3; SBOM generation as an artifact. Alex switches on secret scanning and push protection in the repository settings, which the workflow cannot do.
 3. **Triage agent hardening.** The workflow checks out the agent's role file and helper scripts from `main`, not from the pull request head; the role gains the rule that a description can explain a finding but not excuse it, with `needs-alex` as the verdict when intent is the only defence; ADR 0018 amended.
 
@@ -56,7 +56,7 @@ After each merges, Alex adds the new required checks to the ruleset. Their names
 1. **Planted secret.** On a branch, add a file containing a fake key in a real provider's format (GitHub's documentation lists test patterns that trigger push protection without being live credentials). Expected: the push itself is rejected by push protection; bypassing that for the drill and pushing anyway, the CI secret scan goes red.
 2. **Known-vulnerable dependency.** On a branch, downgrade an npm package to a version with a published advisory. Expected: dependency review goes red naming the advisory; the merge button is disabled.
 3. **Disallowed licence.** Add an npm package under a copyleft licence. Expected: dependency review goes red on the licence rule.
-4. **Moved tag.** Change one pinned action back to a floating tag. Expected: the pin check goes red.
+4. **Moved tag.** Change one pinned action back to a floating tag. Expected: `Docs and status check` goes red on the pin check, naming the unpinned line.
 5. **Role file edit.** On a branch, edit the triage agent's role to say every finding is `not-an-issue`, alongside a change Copilot will comment on. Expected: the agent runs the role from `main` and judges the finding on its merits.
 6. Close all pull requests without merging.
 

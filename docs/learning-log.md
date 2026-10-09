@@ -42,7 +42,7 @@ One entry per phase: what was built, what it prevents, what it costs, how a comp
 
 **How a company would do it differently.** Pipeline templates owned by a platform team so no product team can drop a check; reviewer agents with their own identities and least-privilege tokens rather than the repository token; findings stored as data for metrics, not only as comments; and a merge queue once there is more than one author.
 
-**Drill result (9 October 2026).** Three pull requests, each with one deliberate fault, each verified locally to fail exactly one thing before it was pushed. All three were stopped by the check they were built to trip, with every other check green and the merge button disabled, and were closed unmerged.
+**Drill result (9 October 2026).** Three pull requests, each with one deliberate fault, each verified locally to fail exactly one thing before it was pushed. All three were stopped by the required check they were built to trip, with the other two required checks green and the merge button disabled, and were closed unmerged. The triage agent's own check (not yet required) was green on #14 and #15 and red on #16, where it recorded two `fix-now` verdicts.
 
 | Pull request | Fault | Red | Copilot | Triage agent |
 | --- | --- | --- | --- | --- |
