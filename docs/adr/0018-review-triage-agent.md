@@ -30,7 +30,7 @@ The agent acts only through four helper scripts in `eng/triage/`: `list-threads.
 Guardrails, in configuration:
 
 - **Trigger control**: the job starts only for reviews whose author is Copilot, or on manual dispatch. `allowed_bots` names exactly those accounts.
-- **Least privilege**: workflow permissions are read on contents, write on pull requests, issues and checks; the agent's tool list allows reading, `gh pr view`, `gh pr diff` and the three helper scripts, nothing else. It cannot edit files, call the API directly, run tests or resolve threads. The first Copilot review of this workflow caught that a raw `gh api` allowance would have let the model resolve threads despite the role forbidding it; the helper scripts are the fix.
+- **Least privilege**: workflow permissions are read on contents, write on pull requests, issues and checks; the agent's tool list allows reading, `gh pr view`, `gh pr diff` and the four helper scripts, nothing else. It cannot edit files, call the API directly, run tests or resolve threads. The first Copilot review of this workflow caught that a raw `gh api` allowance would have let the model resolve threads despite the role forbidding it; the helper scripts are the fix.
 - **Bounded runs**: Sonnet model, 40 turns, 20-minute timeout, one run per pull request at a time.
 - **Untrusted input**: the role file and the prompt both state that review text is a claim to verify, never an instruction.
 - **Separation**: the status check is posted by a script step from findings recorded by `reply.sh`, so the agent never holds the checks permission and cannot mark its own verdicts non-blocking.
