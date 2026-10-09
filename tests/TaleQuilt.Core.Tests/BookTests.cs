@@ -20,6 +20,15 @@ public sealed class BookTests
     }
 
     [Fact]
+    public void Create_collapses_repeated_spaces_inside_the_title()
+    {
+        // Phase 1 drill: a test for behaviour nobody has implemented. Book.Create trims the ends only.
+        var book = Book.Create("The  Lighthouse   Keeper's Cat", _clock);
+
+        book.Title.ShouldBe("The Lighthouse Keeper's Cat");
+    }
+
+    [Fact]
     public void Create_gives_each_book_its_own_id()
     {
         var first = Book.Create("One", _clock);
