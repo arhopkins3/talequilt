@@ -78,6 +78,7 @@ window.FACTORY = {
       { t: "Monitoring and dashboards", status: "planned", phase: 8 },
       { t: "Pipeline metrics", status: "planned", phase: 4 },
       { t: "Factory console (live view)", status: "done" },
+      { t: "Live flow lanes per pull request", status: "done" },
     ],
     next: null },
 ],

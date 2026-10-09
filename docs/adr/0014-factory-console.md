@@ -31,6 +31,8 @@ Conventions the console relies on:
 
 Token handling: the console works without a token at GitHub's anonymous rate limit. For a faster refresh Alex can paste a fine-grained personal access token scoped to this one repository with read-only Contents, Issues, Pull requests, Actions, Deployments and Metadata permissions and an expiry. It is held in the browser's local storage only, sent only to `api.github.com`, and never committed. The page renders every API string as text, never as HTML, so a crafted issue title cannot run script on the page.
 
+**Live flow (added 9 October 2026).** The console opens with one lane per open pull request: stations for the push, the CI checks, Copilot's review, the triage agent, open threads, Alex's review and merge, and the merge itself, followed by a lane for `main` (CI, Pages, and the Phase 3 staging and production stations as not-yet). Each station is in one of six states: done, running now, waiting for someone, failed or blocked, skipped, or not yet. Running stations pulse, connectors animate where work is flowing, and the reduced-motion preference turns motion off. The states come from GitHub's check runs, reviews and review comments, so the lane moves on its own as the pipeline acts.
+
 ## Consequences
 
 The pipeline gains an instrument panel before it gains agents, and the panel improves as each phase adds data. Every later phase has a place to show its results. The console is documentation, so it ships with the same pull request as the thing it describes.
