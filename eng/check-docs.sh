@@ -46,7 +46,7 @@ print("workflow and template yaml ok")
 PY
 
 # 4. Action pinning: each `uses:` must reference a 40-character commit SHA. Local actions (./) are exempt.
-unpinned=$(grep -hnE '^\s*-?\s*uses:\s*[^./]' .github/workflows/*.yml | grep -vE 'uses:\s*[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@[0-9a-f]{40}( |$)' || true)
+unpinned=$(grep -hnE '^\s*-?\s*uses:\s*[^./[:space:]]' .github/workflows/*.yml | grep -vE 'uses:\s*[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@[0-9a-f]{40}( |$)' || true)
 if [ -n "$unpinned" ]; then
   echo "unpinned actions (pin to a commit SHA, with the tag as a comment):" >&2
   echo "$unpinned" >&2
