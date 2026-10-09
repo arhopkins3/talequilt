@@ -305,8 +305,9 @@ footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--li
   document.getElementById("tokenclear").onclick = () => { token = null; try { localStorage.removeItem(TOKEN_KEY); } catch (e) {} dlg.hidden = true; refresh(); };
 
   // --- fetch with rate-limit bookkeeping ---
-  const rate = { remaining: null, limit: null, reset: null };
+  const rate = { remaining: null, limit: null, reset: null, calls: 0, lastCost: 0 };
   async function gh(path, accept = "application/vnd.github+json") {
+    rate.calls++;
     const headers = { Accept: accept, "X-GitHub-Api-Version": "2022-11-28" };
     if (token) headers.Authorization = `Bearer ${token}`;
     const r = await fetch(API + path, { headers });
@@ -380,30 +381,33 @@ footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--li
       ];
       replace("board", board);
       setText("boardcount", `${issues.length} issues · ${openPRs.length} open PRs · ${merged.length} merged`);
-      await loadPRs(openPRs, merged);
+      await loadPRs(openPRs, closedPRs);
     } catch (e) { replace("board", errRow(e, "issues and pull requests")); replace("flow", errRow(e, "the live flow")); }
   }
 
-  async function loadPRs(openPRs, merged) {
+  async function loadPRs(openPRs, closedPRs) {
     let detailed = [];
     try {
+      // Details for the 10 most recent open pull requests; the live flow says how many more there are.
       detailed = await Promise.all(openPRs.slice(0, 10).map(async p => {
-        const [full, checks, files, reviews, comments] = await Promise.all([
+        // A failed read becomes null, never an empty list, so a lane can say "unavailable" instead of "none".
+        const [full, checksRes, files, reviews, comments] = await Promise.all([
           gh(`/pulls/${p.number}`),
-          gh(`/commits/${p.head.sha}/check-runs?per_page=50`).catch(() => ({ check_runs: [] })),
-          token ? gh(`/pulls/${p.number}/files?per_page=100`).catch(() => []) : Promise.resolve([]),
-          gh(`/pulls/${p.number}/reviews?per_page=100`).catch(() => []),
-          gh(`/pulls/${p.number}/comments?per_page=100`).catch(() => []),
+          gh(`/commits/${p.head.sha}/check-runs?per_page=50`).catch(() => null),
+          token ? gh(`/pulls/${p.number}/files?per_page=100`).catch(() => null) : Promise.resolve(null),
+          gh(`/pulls/${p.number}/reviews?per_page=100`).catch(() => null),
+          gh(`/pulls/${p.number}/comments?per_page=100`).catch(() => null),
         ]);
-        return { p: full, checks: checks.check_runs || [], adrs: files.filter(f => /^docs\/adr\/\d{4}-/.test(f.filename)).length, reviews, comments };
+        return { p: full, checks: checksRes ? (checksRes.check_runs || []) : null, adrs: (files || []).filter(f => /^docs\/adr\/\d{4}-/.test(f.filename)).length, reviews, comments };
       }));
       let failing = 0, ready = 0;
-      const rows = detailed.map(({ p, checks, adrs }) => {
+      const rows = detailed.map(({ p, checks: checksOrNull, adrs }) => {
+        const checks = checksOrNull || [];
         const bad = checks.filter(c => ["failure", "timed_out", "cancelled", "action_required"].includes(c.conclusion));
         const running = checks.filter(c => c.status !== "completed");
         failing += bad.length;
         if (!p.draft && bad.length === 0) ready++;
-        const state = p.draft ? pill("neutral", "draft") : bad.length ? pill("bad", `${bad.length} failing`) : running.length ? pill("warn", `${running.length} running`) : checks.length ? pill("ok", "checks green") : pill("neutral", "no checks yet");
+        const state = p.draft ? pill("neutral", "draft") : checksOrNull === null ? pill("neutral", "checks unavailable") : bad.length ? pill("bad", `${bad.length} failing`) : running.length ? pill("warn", `${running.length} running`) : checks.length ? pill("ok", "checks green") : pill("neutral", "no checks yet");
         const merge = pill(p.mergeable_state === "clean" ? "ok" : p.mergeable_state === "dirty" ? "bad" : "neutral", p.mergeable_state === "dirty" ? "conflict" : p.mergeable_state || "unknown", "mergeable state");
         return el("div", { class: "row" }, el("div", { class: "grow" },
           el("div", { class: "title" }, el("a", { href: p.html_url }, `#${p.number} ${p.title}`)),
@@ -415,7 +419,7 @@ footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--li
       attention.failing = failing; attention.prsReady = ready;
     } catch (e) { replace("prs", errRow(e, "pull request details")); }
     renderAttention();
-    await renderFlow(detailed, merged || []);
+    await renderFlow(detailed, openPRs.length, closedPRs || []);
   }
 
   // --- live flow: the state of each change as stations on a track ---
@@ -424,31 +428,33 @@ footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--li
   const BAD = c => ["failure", "timed_out", "cancelled", "action_required"].includes(c.conclusion);
   const station = (k, v, state, d) => ({ k, v, state, d });
 
-  function prStations({ p, checks, reviews, comments }) {
+  function prStations({ p, checks: checksOrNull, reviews: reviewsOrNull, comments: commentsOrNull }) {
     const out = [];
     out.push(station("Pushed", `${p.head.sha.slice(0, 7)}`, "done", `${p.commits} commit${p.commits === 1 ? "" : "s"} · ${fmtAgo(p.updated_at)}`));
+    const unavailable = (k, what) => station(k, "unavailable", "skipped", `could not read ${what} from GitHub`);
+    const checks = checksOrNull || [], reviews = reviewsOrNull || [], comments = commentsOrNull || [];
 
     const ci = checks.filter(c => CI_CHECKS.includes(c.name));
     const ciState = ci.some(BAD) ? "failed" : ci.some(c => c.status !== "completed") ? "active" : ci.length >= CI_CHECKS.length && ci.every(c => c.conclusion === "success") ? "done" : ci.length ? "active" : "pending";
     const ciText = { failed: `${ci.filter(BAD).length} failing`, active: `${ci.filter(c => c.status !== "completed").length || ci.length} running`, done: "all green", pending: "not started" }[ciState];
-    out.push(station("CI checks", ciText, ciState, ci.map(c => c.name.replace(" build and test", "").replace(" and status check", "")).join(" · ") || "build, test, lint, coverage, docs"));
+    out.push(checksOrNull === null ? unavailable("CI checks", "check runs") : station("CI checks", ciText, ciState, ci.map(c => c.name.replace(" build and test", "").replace(" and status check", "")).join(" · ") || "build, test, lint, coverage, docs"));
 
     const copilotCheck = checks.find(c => c.name === "copilot-pull-request-reviewer");
     const reviewedHead = reviews.some(r => r.user?.login === REVIEWER && r.commit_id === p.head.sha);
     const reviewedAny = reviews.some(r => r.user?.login === REVIEWER);
     const cpState = reviewedHead ? "done" : copilotCheck && copilotCheck.status !== "completed" ? "active" : reviewedAny ? "skipped" : "pending";
-    out.push(station("Copilot review", { done: "reviewed", active: "reviewing", skipped: "earlier commit", pending: "awaiting" }[cpState], cpState,
+    out.push(reviewsOrNull === null ? unavailable("Copilot review", "reviews") : station("Copilot review", { done: "reviewed", active: "reviewing", skipped: "earlier commit", pending: "awaiting" }[cpState], cpState,
       cpState === "skipped" ? "reviewed an earlier push, not this one" : cpState === "done" ? `${comments.filter(c => c.user?.login === REVIEWER && !c.in_reply_to_id).length} finding(s)` : "reviews on open and when asked"));
 
     const tri = checks.find(c => c.name === "Review triage");
     const triTitle = (tri?.output?.title || "").trim();
     const trState = !tri ? "pending" : tri.status !== "completed" ? (/waiting/i.test(triTitle) ? "waiting" : "active") : tri.conclusion === "success" ? "done" : tri.conclusion === "neutral" ? "skipped" : "failed";
-    out.push(station("Triage agent", { pending: "not started", waiting: "waiting for reviewer", active: "triaging", done: "verdicts posted", skipped: "did not run", failed: "needs action" }[trState], trState, triTitle || "verifies each finding, replies with a verdict"));
+    out.push(checksOrNull === null ? unavailable("Triage agent", "check runs") : station("Triage agent", { pending: "not started", waiting: "waiting for reviewer", active: "triaging", done: "verdicts posted", skipped: "did not run", failed: "needs action" }[trState], trState, triTitle || "verifies each finding, replies with a verdict"));
 
     const top = comments.filter(c => c.user?.login === REVIEWER && !c.in_reply_to_id);
     const unanswered = top.filter(t => !comments.some(c => c.in_reply_to_id === t.id));
     const thState = !top.length ? "pending" : unanswered.length ? "waiting" : "done";
-    out.push(station("Threads", !top.length ? "none" : unanswered.length ? `${unanswered.length} unanswered` : `${top.length} answered`, thState, top.length ? "Alex resolves each thread" : "no review findings"));
+    out.push(commentsOrNull === null ? unavailable("Threads", "review comments") : station("Threads", !top.length ? "none" : unanswered.length ? `${unanswered.length} unanswered` : `${top.length} answered`, thState, top.length ? "Alex resolves each thread" : "no review findings"));
 
     let alState, alText, alDetail;
     if (p.draft) { alState = "pending"; alText = "draft"; alDetail = "mark ready for review"; }
@@ -462,14 +468,18 @@ footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--li
     return out;
   }
 
-  function mainStations(mergedPR, runs) {
-    const latest = name => runs ? runs.filter(r => r.name === name && r.head_branch === "main").sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] : undefined;
-    const runState = r => !runs ? "skipped" : !r ? "pending" : r.status !== "completed" ? "active" : r.conclusion === "success" ? "done" : "failed";
-    const ci = latest("CI"), pages = latest("Pages");
+  function mainStations(head, mergedPR, runs) {
+    // Everything in this lane is about one commit: the current head of main.
+    const sha = head ? head.sha : null;
+    const forHead = name => runs && sha ? runs.filter(r => r.name === name && r.head_sha === sha).sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0] : undefined;
+    const runState = r => !runs || !sha ? "skipped" : !r ? "pending" : r.status !== "completed" ? "active" : r.conclusion === "success" ? "done" : "failed";
+    const ci = forHead("CI"), pages = forHead("Pages");
+    const mergedText = !head ? "unavailable" : mergedPR ? `#${mergedPR.number}` : sha.slice(0, 7);
+    const mergedDetail = !head ? "could not read main" : mergedPR ? `${mergedPR.title.slice(0, 48)} · ${fmtAgo(mergedPR.merged_at)}` : `head of main · ${fmtAgo(head.commit?.committer?.date)} · not from a recent pull request`;
     return [
-      station("Merged", mergedPR ? `#${mergedPR.number}` : "nothing yet", mergedPR ? "done" : "pending", mergedPR ? `${mergedPR.title.slice(0, 48)} · ${fmtAgo(mergedPR.merged_at)}` : "the first merge starts this lane"),
-      station("CI on main", { pending: "not run", active: "running", done: "green", failed: "red", skipped: "unavailable" }[runState(ci)], runState(ci), ci ? `${ci.head_sha.slice(0, 7)} · ${fmtAgo(ci.created_at)}` : runs ? "build, test, docs" : "could not read workflow runs"),
-      station("Pages deploy", { pending: "not run", active: "deploying", done: "live", failed: "failed", skipped: "unavailable" }[runState(pages)], runState(pages), pages ? `console and map · ${fmtAgo(pages.created_at)}` : runs ? "console and map" : "could not read workflow runs"),
+      station("Merged", mergedText, !head ? "skipped" : "done", mergedDetail),
+      station("CI on main", { pending: "did not run", active: "running", done: "green", failed: "red", skipped: "unavailable" }[runState(ci)], runState(ci), ci ? `${ci.head_sha.slice(0, 7)} · ${fmtAgo(ci.created_at)}` : runs && sha ? "no CI run for this commit" : "could not read workflow runs"),
+      station("Pages deploy", { pending: "did not run", active: "deploying", done: "live", failed: "failed", skipped: "unavailable" }[runState(pages)], runState(pages), pages ? `console and map · ${fmtAgo(pages.created_at)}` : runs && sha ? "no Pages run for this commit" : "could not read workflow runs"),
       station("Staging", "phase 3", "pending", "Container Apps, Playwright, ZAP"),
       station("Alex: G4", "phase 3", "pending", "approves the production deploy"),
       station("Production", "phase 3", "pending", "smoke tests, rollback"),
@@ -493,16 +503,21 @@ footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--li
     return el("div", { class: "lane" }, el("div", { class: "lane-head" }, href ? el("a", { class: "title", href }, title) : el("span", { class: "title" }, title), el("span", { class: "sub" }, sub)), track);
   }
 
-  async function renderFlow(detailed, merged) {
+  async function renderFlow(detailed, openTotal, closedPRs) {
     try {
-      const runsRes = await gh("/actions/runs?branch=main&per_page=10").catch(() => null);
+      const [head, runsRes] = await Promise.all([
+        gh("/commits/main").catch(() => null),
+        gh("/actions/runs?branch=main&per_page=20").catch(() => null),
+      ]);
       const runs = runsRes ? (runsRes.workflow_runs || []) : null;
       const lanes = detailed.map(d => laneEl(`#${d.p.number} ${d.p.title}`, `${d.p.head.ref} → ${d.p.base.ref}`, d.p.html_url, prStations(d)));
-      const lastMerged = [...merged].sort((a, b) => new Date(b.merged_at) - new Date(a.merged_at))[0];
-      lanes.push(laneEl("main", "after the merge: CI, Pages, and the Phase 3 deploy path", lastMerged ? lastMerged.html_url : null, mainStations(lastMerged, runs)));
+      const omitted = openTotal - detailed.length;
+      if (omitted > 0) lanes.push(el("div", { class: "empty" }, `${omitted} more open pull request${omitted === 1 ? "" : "s"} not shown: the console reads details for the 10 most recent to stay within the API budget. All ${openTotal} appear in the Work in flight board.`));
+      const mergedPR = head ? closedPRs.find(p => p.merged_at && p.merge_commit_sha === head.sha) : null;
+      lanes.push(laneEl("main", "after the merge: CI, Pages, and the Phase 3 deploy path", mergedPR ? mergedPR.html_url : null, mainStations(head, mergedPR, runs)));
       if (!detailed.length) lanes.unshift(el("div", { class: "empty" }, "No open pull requests. The next one appears here the moment it is opened, and moves station by station as checks, Copilot, the triage agent and Alex act on it."));
       replace("flow", lanes);
-      setText("flowcount", `${detailed.length} in flight`);
+      setText("flowcount", `${openTotal} in flight`);
     } catch (e) { replace("flow", errRow(e, "the live flow")); }
   }
 
@@ -583,20 +598,34 @@ footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--li
   }
 
   // --- refresh loop ---
-  let busy = false, timer = null;
+  let busy = false, timer = null, nextRefreshAt = null;
   async function refresh() {
     if (busy) return; busy = true;
+    rate.calls = 0;
     const pulse = document.getElementById("pulse"); pulse.className = "pulse busy"; setText("fresh", "refreshing");
     try {
       await Promise.all([loadRules(), loadWork(), loadRuns().then(loadDeployments), loadADRs(), loadActivity()]);
       pulse.className = "pulse"; setText("fresh", `updated ${new Date().toLocaleTimeString()}`);
     } catch (e) { pulse.className = "pulse err"; setText("fresh", "some panels failed"); }
-    if (rate.remaining != null) setText("rate", `${rate.remaining}/${rate.limit} API calls left${token ? "" : " · anonymous"}`);
+    rate.lastCost = rate.calls;
     busy = false; schedule();
+    if (rate.remaining != null) setText("rate", `${rate.remaining}/${rate.limit} API calls left${token ? "" : " · anonymous"} · this refresh ${rate.lastCost} · next in ${Math.round((nextRefreshAt - Date.now()) / 60e3)} min`);
   }
   function schedule() {
     clearTimeout(timer);
-    const interval = token ? 60e3 : 600e3; // anonymous limit is 60 calls an hour; a refresh costs about ten
+    // With a token: every minute. Anonymous: GitHub allows 60 calls an hour per address, so space refreshes
+    // by what the last one cost (about 10 calls plus 4 per open pull request), using at most 80% of the budget,
+    // and never refresh into a reset window with too few calls left.
+    let interval = 60e3;
+    if (!token) {
+      const cost = Math.max(rate.lastCost || 10, 10);
+      const limit = rate.limit || 60;
+      interval = Math.max(600e3, Math.ceil((3600e3 * cost) / (0.8 * limit)));
+      if (rate.remaining != null && rate.reset && rate.remaining < cost * 1.2) {
+        interval = Math.max(interval, rate.reset - Date.now() + 5e3);
+      }
+    }
+    nextRefreshAt = Date.now() + interval;
     timer = setTimeout(() => { if (!document.hidden) refresh(); else schedule(); }, interval);
   }
   document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
