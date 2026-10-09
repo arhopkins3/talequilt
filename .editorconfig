@@ -50,3 +50,8 @@ dotnet_naming_style.underscore_camel.required_prefix = _
 
 [*.md]
 trim_trailing_whitespace = false
+
+# EF Core migrations are generated code: analyzers and style rules do not apply (ADR 0017 exclusions).
+[**/Migrations/**.cs]
+generated_code = true
+dotnet_analyzer_diagnostic.severity = none

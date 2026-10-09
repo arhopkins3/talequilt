@@ -43,13 +43,14 @@ Labels are created in Phase 4 together with the workflows that read them.
 
 ## Agent roles
 
-Each role is a separately configured Claude Code subagent in `.claude/agents/`, with its own instructions and the narrowest tool access that lets it do its job. Roles arrive in Phase 4.
+Each role is a separately configured Claude Code subagent in `.claude/agents/`, with its own instructions and the narrowest tool access that lets it do its job. The review triage role is live from Phase 1; the rest arrive in Phase 4.
 
 | Role | Triggered by | Produces | Access |
 | --- | --- | --- | --- |
 | Spec agent | New issue | User story and acceptance criteria, as an issue comment | Read code; write issue comments |
 | Planner | G1 approval | Design, task list, test plan, draft ADR | Read code; write issue comments |
 | Builder | G2 approval or `size/small` | Branch, code, tests, pull request | Write to feature branches only |
+| Review triage | External review submitted (Copilot today) | A verdict and reason on every review thread; follow-up issues; the `Review triage` status check | Read code; reply to threads; create issues. Live since Phase 1 (ADR 0018) |
 | Reviewer | Pull request opened or updated | Review comments against spec and standards | Read code; write review comments |
 | Security reviewer | Pull requests touching sign-in, secrets, infrastructure or AI calls | Threat-focused review comments | Read code; write review comments |
 | Release agent | Merge to `main` | Release notes and rollback steps | Read code; write release notes |
@@ -95,4 +96,4 @@ Two pages on the GitHub Pages site, both in `docs/` and deployed on every merge 
 
 ## Current state
 
-Phase 1 in review. The pull request rule on `main` is live and drilled. The application skeleton (API, worker, web) and the CI workflow exist; its two jobs become required status checks when Alex adds them to the ruleset. No agents or deployments yet. Each phase's brief in `docs/phases/` says what it adds and the learning log records what was built.
+Phase 1 merged. The pull request rule on `main` is live and drilled. The application skeleton (API, worker, web) and the CI workflow exist; its two jobs become required status checks when Alex adds them to the ruleset. The first agent, review triage, is configured and activates when the Claude GitHub App and the API key secret are in place. No deployments yet. Each phase's brief in `docs/phases/` says what it adds and the learning log records what was built.

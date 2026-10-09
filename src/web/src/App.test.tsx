@@ -62,11 +62,34 @@ describe("App", () => {
     });
 
     render(<App />);
-    await screen.findByRole("status");
+    await screen.findByText(/No books yet/);
     await user.type(screen.getByLabelText("Title"), "x");
     await user.click(screen.getByRole("button", { name: "Add book" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("A book needs a title.");
+  });
+
+  it("keeps the form disabled until the list has loaded", async () => {
+    let resolveList: (r: Response) => void = () => {};
+    mockFetch({
+      "GET /api/health": () => new Response("Healthy", { status: 200 }),
+      "GET /api/books": () => json(200, []),
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.endsWith("/api/books")) return new Promise<Response>((r) => (resolveList = r));
+        return Promise.resolve(new Response("Healthy", { status: 200 }));
+      }),
+    );
+
+    render(<App />);
+
+    expect(screen.getByText(/Loading books/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add book" })).toBeDisabled();
+    resolveList(json(200, []));
+    expect(await screen.findByText(/No books yet/)).toBeInTheDocument();
   });
 
   it("reports an unhealthy API and a failed list", async () => {

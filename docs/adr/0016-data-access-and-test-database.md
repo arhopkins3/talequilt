@@ -25,7 +25,7 @@ Local development uses `compose.yaml`, which starts the same SQL Server image wi
 
 ## Consequences
 
-CI runs Docker, so the container path is the default there. Each test class gets its own database, so tests are isolated without sharing state. Phase 1 uses `EnsureCreated` in tests for speed; the first real migration lands with the Phase 5 schema, after which tests apply migrations so the migration path itself is tested.
+CI runs Docker, so the container path is the default there. Each test class gets its own database, so tests are isolated without sharing state. The first migration (`InitialCreate`) ships with Phase 1 after the Copilot review pointed out that a fresh local database had no schema. The API applies pending migrations at startup when `Database:MigrateOnStartup` is true, which `appsettings.Development.json` and the test fixture set; deployed environments run migrations as a release step in Phase 3, never from a starting replica. Tests therefore exercise the migration path on every run.
 
 ## At company scale
 

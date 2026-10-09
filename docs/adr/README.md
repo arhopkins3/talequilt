@@ -21,3 +21,4 @@ An architecture decision record (ADR) captures one significant choice: the conte
 | [0015](0015-application-skeleton-stack.md) | Application skeleton: Vite React TypeScript, minimal APIs, three .NET projects | Accepted |
 | [0016](0016-data-access-and-test-database.md) | EF Core with SQL Server; integration tests against a real SQL Server | Accepted |
 | [0017](0017-quality-gates-and-ci.md) | Quality gates: format, lint, build, tests and coverage as required status checks | Accepted |
+| [0018](0018-review-triage-agent.md) | Review triage agent: independent verdicts on external review findings, comment-only | Accepted |

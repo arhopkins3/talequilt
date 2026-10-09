@@ -10,7 +10,7 @@ namespace TaleQuilt.Api.Tests;
 /// <summary>
 /// One SQL Server per test run, hosting the API in-process. The server comes from Testcontainers unless
 /// <c>TALEQUILT_TEST_CONNECTION</c> names an existing SQL Server (ADR 0016), in which case a fresh database is
-/// created there and dropped afterwards.
+/// created there and dropped afterwards. The schema comes from the EF migrations, applied by the API at startup.
 /// </summary>
 public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
 {
@@ -36,9 +36,8 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
             InitialCatalog = _databaseName,
         }.ConnectionString;
 
-        using var scope = Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<TaleQuiltDbContext>();
-        await db.Database.EnsureCreatedAsync().ConfigureAwait(false);
+        // Building the host applies the migrations (Database:MigrateOnStartup), which is the path we want tested.
+        _ = Services;
     }
 
     public override async ValueTask DisposeAsync()
@@ -65,6 +64,7 @@ public sealed class ApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["ConnectionStrings:TaleQuilt"] = ConnectionString,
+                ["Database:MigrateOnStartup"] = "true",
             }));
     }
 }
