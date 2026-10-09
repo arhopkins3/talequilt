@@ -18,7 +18,7 @@ window.FACTORY = {
   { num: "Stage 1", name: "Spec", status: "active",
     agent: { who: "Spec agent", what: "turns an issue into a user story with testable acceptance criteria", status: "planned", phase: 4 },
     checks: [
-      { t: "Issue template complete", status: "done" },
+      { t: "Issue template complete", status: "active" }
       { t: "Criteria are testable", status: "manual", phase: 4 },
     ],
     next: { gate: "G1", label: "Alex approves the spec", status: "manual", detail: "label gate in phase 4" } },
