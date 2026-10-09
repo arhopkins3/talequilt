@@ -38,6 +38,10 @@ Guardrails, in configuration:
 
 The check is not required by the ruleset yet. After a few pull requests show the verdicts are sound, Alex adds `Review triage` to the required checks, which also makes merges wait for Copilot's review.
 
+**Self-protection the platform adds.** The Claude GitHub App refuses to run when the workflow file on the pull request differs from the one on `main` ("the workflow file must exist and have identical content to the version on the repository's default branch"). A pull request therefore cannot edit this agent's workflow and have the edited version act on the repository; changes to the agent take effect only after Alex merges them. On such pull requests the check reports neutral with "Agent did not run", never a clean zero. This is the "agents cannot change the rules" guardrail enforced by the vendor as well as by CODEOWNERS.
+
+**Reviewer cadence.** Copilot reviews a pull request when it opens or becomes ready for review; it reviews later pushes only when the ruleset's automatic-review setting asks for new pushes. The wait is 15 minutes on open and 6 on a later push, after which the agent triages whatever unresolved threads exist.
+
 ## Consequences
 
 Prerequisites Alex completes once: install the Claude GitHub App on the repository and add the `ANTHROPIC_API_KEY` secret from a Console key with a spend limit (ADR 0004). Until then the workflow reports a neutral check and does nothing else. The Phase 4 reviewer and security reviewer agents reuse this workflow shape. Model spend per pull request becomes visible in the Console from the first run.

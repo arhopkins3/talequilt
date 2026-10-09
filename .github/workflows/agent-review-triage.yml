@@ -86,9 +86,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_SHA: ${{ steps.pr.outputs.sha }}
+          # Copilot reviews a pull request when it opens or becomes ready. It reviews later pushes only if the
+          # ruleset asks it to, so wait less on a synchronize event.
+          WAIT_MINUTES: ${{ github.event.action == 'synchronize' && 6 || 15 }}
         run: |
-          # Copilot reviews the head commit within a few minutes of a push. Poll for a review of this exact commit.
-          deadline=$(( $(date +%s) + 15 * 60 ))
+          # Poll for a Copilot review of this exact commit.
+          deadline=$(( $(date +%s) + WAIT_MINUTES * 60 ))
           found=0
           while [ "$(date +%s)" -lt "$deadline" ]; do
             n=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" \
@@ -97,7 +100,22 @@ jobs:
             sleep 20
           done
           echo "found=$found" >> "$GITHUB_OUTPUT"
-          [ "$found" = "1" ] && echo "Reviewer bot has reviewed ${HEAD_SHA}" || echo "::notice::No Copilot review of ${HEAD_SHA} within 15 minutes; triaging whatever unresolved threads exist."
+          [ "$found" = "1" ] && echo "Reviewer bot has reviewed ${HEAD_SHA}" || echo "::notice::No Copilot review of ${HEAD_SHA} within ${WAIT_MINUTES} minutes; triaging whatever unresolved threads exist."
+
+      - name: Count unresolved review threads
+        id: threads
+        if: steps.prereq.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Deterministic count, so the report step can tell "nothing to triage" from "the agent did not run".
+          count=$(gh api graphql -F owner="${GITHUB_REPOSITORY_OWNER}" -F repo="${GITHUB_REPOSITORY#*/}" -F pr="${PR_NUMBER}" -f query='
+            query($owner: String!, $repo: String!, $pr: Int!) {
+              repository(owner: $owner, name: $repo) { pullRequest(number: $pr) {
+                reviewThreads(first: 100) { nodes { isResolved } } } } }' \
+            --jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved | not)] | length' || echo "unknown")
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Unresolved review threads: $count"
 
       - uses: actions/checkout@v5
         if: steps.prereq.outputs.ready == 'true'
@@ -146,6 +164,7 @@ jobs:
           HEAD_SHA: ${{ steps.pr.outputs.sha }}
           CHECK_ID: ${{ steps.open.outputs.check_id }}
           REVIEW_FOUND: ${{ steps.wait.outputs.found }}
+          THREADS: ${{ steps.threads.outputs.count }}
           AGENT_OUTCOME: ${{ steps.claude.outcome }}
         with:
           script: |
@@ -171,6 +190,13 @@ jobs:
                 summary = `The agent step ended with outcome "${process.env.AGENT_OUTCOME}". Check that the Claude GitHub App is installed on this repository and that ANTHROPIC_API_KEY is valid (ADR 0018). ${findings.length} finding(s) were recorded before the failure.`;
               } else if (invalid.length) {
                 conclusion = 'failure'; title = 'Triage recorded an invalid verdict'; summary = invalid.map(f => `comment ${f.comment_id}: "${f.verdict}"`).join('; ');
+              } else if (findings.length === 0 && Number(process.env.THREADS) > 0) {
+                // Unresolved threads exist but nothing was recorded: the agent did not run. The usual cause is the
+                // Claude GitHub App refusing a workflow file that differs from main (a pull request that edits this
+                // workflow), which resolves itself on merge. Neutral, so it never masquerades as a clean result.
+                conclusion = 'neutral';
+                title = `Agent did not run: ${process.env.THREADS} unresolved thread(s) left untriaged`;
+                summary = 'The agent step ended without recording a verdict. If this pull request changes the agent workflow, the Claude GitHub App skips the run until the file matches main (ADR 0018). Otherwise read the "Triage with Claude" step log.';
               } else {
                 conclusion = blocking.length ? 'failure' : 'success';
                 const seen = findings.filter(f => f.verdict === 'in-discussion').length;
