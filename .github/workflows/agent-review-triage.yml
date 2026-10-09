@@ -1,6 +1,8 @@
-# Agent: review triage (ADR 0018). Runs when an external reviewer (Copilot today) submits a review, reads
-# every unresolved thread, verifies each claim against the code, replies with a verdict, and reports a
-# "Review triage" status check. Comment and classify only. The agent's only way to act is through the
+# Agent: review triage (ADR 0018). Starts on every pull request push, posts an in-progress "Review triage"
+# check, waits for the external reviewer (Copilot today) to submit its review, then reads every unresolved
+# thread, verifies each claim against the code, replies with a verdict, and completes the check.
+# It starts on the push rather than on the review because GitHub holds workflow runs triggered by the
+# Copilot bot for manual approval (it is treated as an outside contributor); the push actor is the author. Comment and classify only. The agent's only way to act is through the
 # helper scripts in eng/triage/: list threads (read-only), reply with a validated verdict (which also
 # records the finding), and open a follow-up issue. It holds no raw GitHub API access and no file-write
 # permission. The check is posted by a deterministic step from the recorded findings, with the blocking
@@ -13,8 +15,8 @@
 name: "Agent: review triage"
 
 on:
-  pull_request_review:
-    types: [submitted]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       pr:
@@ -31,19 +33,15 @@ permissions:
 
 concurrency:
   group: review-triage-${{ github.event.pull_request.number || inputs.pr }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   triage:
     name: Triage review findings
-    # Only reviews from the reviewers we have chosen to listen to start a run. Everyone else's review text is data.
-    # Copilot's review login is "copilot-pull-request-reviewer[bot]" (confirmed from the PR #5 payload); the
-    # other spellings cover the events API and any future rename of the suffix.
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      contains(fromJSON('["copilot-pull-request-reviewer[bot]","copilot-pull-request-reviewer","Copilot"]'), github.event.review.user.login)
+    # Drafts are not reviewed by Copilot, so they are not triaged until marked ready.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     env:
       PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
     steps:
@@ -59,12 +57,47 @@ jobs:
 
       - name: Resolve pull request head
         id: pr
-        if: steps.prereq.outputs.ready == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           sha=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .head.sha)
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Open the Review triage check (in progress)
+        id: open
+        uses: actions/github-script@v7
+        env:
+          HEAD_SHA: ${{ steps.pr.outputs.sha }}
+          READY: ${{ steps.prereq.outputs.ready }}
+        with:
+          script: |
+            const { data } = await github.rest.checks.create({ ...context.repo, name: 'Review triage', head_sha: process.env.HEAD_SHA,
+              status: process.env.READY === 'true' ? 'in_progress' : 'completed',
+              conclusion: process.env.READY === 'true' ? undefined : 'neutral',
+              details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              output: process.env.READY === 'true'
+                ? { title: 'Waiting for the reviewer', summary: 'Waiting up to 15 minutes for Copilot code review to submit its review of this commit, then triaging its findings (ADR 0018).' }
+                : { title: 'Review triage agent not active yet', summary: 'ANTHROPIC_API_KEY is not configured (ADR 0018). Nothing ran.' } });
+            core.setOutput('check_id', data.id);
+
+      - name: Wait for the reviewer bot
+        id: wait
+        if: steps.prereq.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ steps.pr.outputs.sha }}
+        run: |
+          # Copilot reviews the head commit within a few minutes of a push. Poll for a review of this exact commit.
+          deadline=$(( $(date +%s) + 15 * 60 ))
+          found=0
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            n=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100" \
+                 --jq "[.[] | select(.user.login == \"copilot-pull-request-reviewer[bot]\" and .commit_id == \"${HEAD_SHA}\")] | length")
+            if [ "${n:-0}" -gt 0 ]; then found=1; break; fi
+            sleep 20
+          done
+          echo "found=$found" >> "$GITHUB_OUTPUT"
+          [ "$found" = "1" ] && echo "Reviewer bot has reviewed ${HEAD_SHA}" || echo "::notice::No Copilot review of ${HEAD_SHA} within 15 minutes; triaging whatever unresolved threads exist."
 
       - uses: actions/checkout@v5
         if: steps.prereq.outputs.ready == 'true'
@@ -84,7 +117,6 @@ jobs:
           # The transcript is part of the run record (traceability guardrail); the repository is public and the
           # agent reads only code and review text, so there is nothing in it to hide.
           show_full_output: true
-          allowed_bots: "copilot-pull-request-reviewer[bot],copilot-pull-request-reviewer,Copilot"
           prompt: |
             You are the review triage agent. Read `.claude/agents/review-triage.md` first and follow it exactly.
             Triage the unresolved review threads on pull request #${{ env.PR_NUMBER }} in ${{ github.repository }}.
@@ -112,22 +144,21 @@ jobs:
         env:
           READY: ${{ steps.prereq.outputs.ready }}
           HEAD_SHA: ${{ steps.pr.outputs.sha }}
+          CHECK_ID: ${{ steps.open.outputs.check_id }}
+          REVIEW_FOUND: ${{ steps.wait.outputs.found }}
           AGENT_OUTCOME: ${{ steps.claude.outcome }}
         with:
           script: |
             const fs = require('fs');
             const pr = Number(process.env.PR_NUMBER);
             const ready = process.env.READY === 'true';
-            let sha = process.env.HEAD_SHA;
-            if (!sha) {
-              const { data } = await github.rest.pulls.get({ ...context.repo, pull_number: pr });
-              sha = data.head.sha;
-            }
+            if (!ready) return; // the opening step already posted the neutral check
+            const sha = process.env.HEAD_SHA;
             // Blocking is derived here from the verdict recorded by eng/triage/reply.sh, never read from model output.
             const BLOCKING = new Set(['fix-now', 'needs-alex']);
             const ALLOWED = new Set(['fix-now', 'defer', 'not-an-issue', 'needs-alex', 'in-discussion']);
-            let conclusion = 'neutral', title = 'Review triage agent not active yet', summary = 'ANTHROPIC_API_KEY is not configured (ADR 0018). Nothing ran.';
-            if (ready) {
+            let conclusion = 'neutral', title = '', summary = '';
+            {
               let findings = [];
               try {
                 findings = fs.readFileSync('.triage/findings.jsonl', 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l));
@@ -144,11 +175,15 @@ jobs:
                 conclusion = blocking.length ? 'failure' : 'success';
                 const seen = findings.filter(f => f.verdict === 'in-discussion').length;
                 const triaged = findings.length - seen;
-                title = `${triaged} finding(s) triaged, ${blocking.length} need action${seen ? `, ${seen} already in discussion` : ''}`;
+                title = `${triaged} finding(s) triaged, ${blocking.length} need action${seen ? `, ${seen} already in discussion` : ''}${process.env.REVIEW_FOUND === '1' ? '' : ' (no Copilot review of this commit within 15 minutes)'}`;
                 const rows = findings.map(f => `| ${f.verdict} | ${f.comment_id} | ${f.summary || ''} ${f.issue ? `([issue](${f.issue}))` : ''} |`).join('\n');
                 summary = `| Verdict | Comment | Summary |\n| --- | --- | --- |\n${rows || '| none | | no unresolved review threads |'}`;
               }
             }
-            await github.rest.checks.create({ ...context.repo, name: 'Review triage', head_sha: sha, status: 'completed', conclusion,
-              details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              output: { title, summary } });
+            const output = { title, summary };
+            if (process.env.CHECK_ID) {
+              await github.rest.checks.update({ ...context.repo, check_run_id: Number(process.env.CHECK_ID), status: 'completed', conclusion, output });
+            } else {
+              await github.rest.checks.create({ ...context.repo, name: 'Review triage', head_sha: sha, status: 'completed', conclusion,
+                details_url: `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`, output });
+            }
