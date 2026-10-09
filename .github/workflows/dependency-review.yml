@@ -1,0 +1,31 @@
+# Dependency review (ADR 0019): every pull request's added or changed packages are checked against the
+# GitHub Advisory Database and the licence allow list. A known vulnerability at low severity or above, or a
+# licence outside the list, fails the check. The job name "Dependency review" is the check Alex adds to the
+# main-protection ruleset as required (ADR 0019); until then it reports without blocking.
+# Every action is pinned to a commit SHA, with the tag it was taken from as a comment; Dependabot proposes bumps.
+name: Dependency review
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: Dependency review
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          fail-on-severity: low
+          # Licences compatible with redistribution under MIT (ADR 0011). Anything else fails until Alex adds it here.
+          allow-licenses: MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, Unlicense
+          comment-summary-in-pr: on-failure

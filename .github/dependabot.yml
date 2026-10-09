@@ -1,0 +1,37 @@
+# Dependency updates (ADR 0019). Grouped weekly pull requests for each ecosystem; each one runs through
+# every gate like any other pull request, and Alex merges it. Actions bumps keep the SHA pins current.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /src/web
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/London
+    groups:
+      npm:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+  - package-ecosystem: nuget
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/London
+    groups:
+      nuget:
+        patterns: ["*"]
+    open-pull-requests-limit: 3
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/London
+    groups:
+      actions:
+        patterns: ["*"]
+    open-pull-requests-limit: 3

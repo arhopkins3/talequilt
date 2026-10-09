@@ -3,6 +3,7 @@
 # 1. docs/factory-status.js must load and describe every phase, stage and guardrail with a known status.
 # 2. Every relative Markdown link in the repository must point at a file that exists.
 # 3. Every workflow file must be valid YAML.
+# 4. Every action a workflow uses is pinned to a commit SHA (ADR 0019), so a moved tag cannot change what runs.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -43,3 +44,12 @@ for f in glob.glob(".github/workflows/*.yml") + glob.glob(".github/ISSUE_TEMPLAT
     yaml.safe_load(open(f))
 print("workflow and template yaml ok")
 PY
+
+# 4. Action pinning: each `uses:` must reference a 40-character commit SHA. Local actions (./) are exempt.
+unpinned=$(grep -hnE '^\s*-?\s*uses:\s*[^./[:space:]]' .github/workflows/*.yml | grep -vE 'uses:\s*[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@[0-9a-f]{40}( |$)' || true)
+if [ -n "$unpinned" ]; then
+  echo "unpinned actions (pin to a commit SHA, with the tag as a comment):" >&2
+  echo "$unpinned" >&2
+  exit 1
+fi
+echo "actions pinned by sha ok"
