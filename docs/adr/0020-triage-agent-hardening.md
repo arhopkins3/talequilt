@@ -20,11 +20,11 @@ The agent also made a claim about commit history on #17 ("not in the PR head's h
 | Run the agent from a separate repository | Strongest separation | Far more moving parts for one agent |
 | Intent rule: a description explains, never excuses; intent as the only defence is `needs-alex` | Consistent verdicts; the human decides when intent matters | More `needs-alex` verdicts on deliberate-fault pull requests, which is the point |
 | Let the agent weigh intent itself | Fewer human decisions | The drill showed it weighs the same intent differently on different days |
-| Report a cancelled run as `cancelled`, "superseded by a newer push" | Red means something again | None |
+| Report a cancelled run as `cancelled`, without claiming why | Red means something again; no false cause | None |
 
 ## Decision
 
-The workflow checks out the pull request head, then replaces `.claude/` and `eng/triage/` with `main`'s copies before the agent runs, and prints the diff it discarded. The role states that the checkout is shallow and that history is not something it can judge. The role's first step now says intent can explain a finding but never excuse one, and that an accurate finding whose only defence is the description's stated purpose is `needs-alex`. The report step concludes `cancelled` with "Superseded by a newer push" when the job was cancelled, instead of "failed to run".
+The workflow checks out the pull request head, then removes `.claude/` and `eng/triage/` and restores them and `CLAUDE.md` from `main` before the agent runs, printing the diff it discarded. The removal matters: a checkout over a directory is an overlay and would leave a file the pull request added, such as a `.claude/settings.local.json` that Claude would still load. The role states that the checkout is shallow and that history is not something it can judge. The role's first step now says intent can explain a finding but never excuse one, and that an accurate finding whose only defence is the description's stated purpose is `needs-alex`. The report step concludes `cancelled` with "Run cancelled before the agent finished" when the job was cancelled, instead of "failed to run"; it does not claim a cause, since a person or a second dispatch can cancel a run as well as a newer push.
 
 ## Consequences
 

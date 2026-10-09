@@ -127,14 +127,18 @@ jobs:
         if: steps.prereq.outputs.ready == 'true'
         run: |
           # The checkout is the pull request head, which the agent must read. Everything that governs the agent
-          # itself (its role, the Claude settings and hooks it loads, and the helper scripts that are its only way
-          # to act) is replaced with main's copy, so a pull request cannot change how the agent judges that pull
-          # request. The Claude GitHub App already refuses a changed workflow file; this closes the same door for
-          # the files the workflow reads (ADR 0020).
+          # itself (its role, the Claude settings and hooks it loads, the helper scripts that are its only way to
+          # act, and CLAUDE.md which the role reads first) is replaced with main's copy, so a pull request cannot
+          # change how the agent judges that pull request. The directories are removed before the restore, because
+          # a checkout over a directory is an overlay and would leave a file the pull request added (for example a
+          # .claude/settings.local.json). The Claude GitHub App already refuses a changed workflow file; this closes
+          # the same door for the files the workflow reads (ADR 0020).
           git fetch --no-tags --depth=1 origin main
-          git checkout origin/main -- .claude eng/triage
-          echo "Agent rules pinned to main $(git rev-parse --short origin/main):"
-          git diff --stat "${{ steps.pr.outputs.sha }}" -- .claude eng/triage || true
+          rm -rf .claude eng/triage
+          git checkout origin/main -- .claude eng/triage CLAUDE.md
+          echo "Agent rules pinned to main $(git rev-parse --short origin/main); differences from the pull request head:"
+          git diff --stat "${{ steps.pr.outputs.sha }}" -- .claude eng/triage CLAUDE.md || true
+          git status --short -- .claude eng/triage CLAUDE.md || true
 
       - name: Triage with Claude
         id: claude
@@ -199,11 +203,12 @@ jobs:
               const invalid = findings.filter(f => !ALLOWED.has(f.verdict));
               const blocking = findings.filter(f => BLOCKING.has(f.verdict));
               if (process.env.JOB_STATUS === 'cancelled') {
-                // A newer push cancelled this run (concurrency, cancel-in-progress). The newer commit gets its own
-                // run and check; this one is superseded, not failed.
+                // The job was cancelled before the agent finished: usually a newer push (concurrency,
+                // cancel-in-progress), sometimes a person or a second dispatch. The cause is not known here, so the
+                // check says only what happened. It is not a failure of the agent.
                 conclusion = 'cancelled';
-                title = 'Superseded by a newer push';
-                summary = `This run was cancelled before the agent finished because a newer commit started its own run. ${findings.length} finding(s) were recorded before the cancellation; the newer commit's check is the one that counts.`;
+                title = 'Run cancelled before the agent finished';
+                summary = `The job was cancelled, most often because a newer push started its own run. ${findings.length} finding(s) were recorded before the cancellation. If the pull request has a newer commit, its check is the one that counts; otherwise re-run this workflow.`;
               } else if (process.env.AGENT_OUTCOME !== 'success') {
                 conclusion = 'failure';
                 title = 'Triage agent failed to run';
