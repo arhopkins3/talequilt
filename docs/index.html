@@ -63,6 +63,7 @@ button.primary { background: var(--accent); color: #fff; border-color: var(--acc
 input[type=password], input[type=text] { font: inherit; font-family: var(--mono); font-size: 0.8rem; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; }
 
 main { max-width: 1400px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding-top: 14px; }
+main > .panel { grid-column: 1 / -1; } /* a panel placed directly in main must not span 12 columns and create implicit ones */
 .grid { display: grid; gap: 14px; grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
 .panel { grid-column: span 12; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; display: grid; grid-template-rows: auto 1fr; min-width: 0; }
 .panel > header { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; padding: 10px 14px; border-bottom: 1px solid var(--line); min-width: 0; }
