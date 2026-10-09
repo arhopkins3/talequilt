@@ -89,6 +89,10 @@ Every merged pull request should let an auditor reconstruct: the issue, the appr
 | Adoption | Gates first, agents fourth | One pilot team, guardrails before autonomy, reviewer training, staged widening |
 | Regulation and policy | This document | An AI use policy and mapping to existing change management (SOC 2, ISO 27001) |
 
+## Seeing the factory
+
+Two pages on the GitHub Pages site, both in `docs/` and deployed on every merge to `main`: the **Factory Console** (`index.html`) reads the GitHub API live and shows the `main` ruleset, backlog by gate label, open pull requests with their checks, workflow runs with agent runs highlighted, ADRs with status, deployments and recent activity; the **factory map** (`pipeline-map.html`) shows the same pipeline as a colour-coded picture. Static status for both lives in `factory-status.js`. See ADR 0014.
+
 ## Current state
 
 Phase 0. The pull request rule on `main`, CODEOWNERS, templates, ADRs and this document exist. No status checks, agents or deployments yet. Each phase's brief in `docs/phases/` says what it adds and the learning log records what was built.

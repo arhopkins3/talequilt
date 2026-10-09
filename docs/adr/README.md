@@ -17,3 +17,4 @@ An architecture decision record (ADR) captures one significant choice: the conte
 | [0011](0011-mit-licence.md) | MIT licence for the code | Accepted |
 | [0012](0012-domains-and-dns.md) | Domains: subdomains of alexhopkins.app, DNS at GoDaddy | Accepted |
 | [0013](0013-g3-approval-before-agent-authored-prs.md) | Gate G3 before agent-authored pull requests: zero required approvals | Accepted, to be revisited in Phase 4 |
+| [0014](0014-factory-console.md) | Factory Console: a live view of the pipeline, staged from static page to event stream | Accepted |

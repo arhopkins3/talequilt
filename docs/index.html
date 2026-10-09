@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TaleQuilt Factory Console</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a sticky top bar with freshness and controls, an attention row, then a responsive grid of
+   panels. Each panel renders independently from one GitHub API call group and shows its own error. */
+:root {
+  --bg: #f3f3ef; --surface: #ffffff; --surface-2: #f8f8f5; --fg: #1f2430; --muted: #5b6270; --line: #d8d6cf;
+  --accent: #5b4b8a; --accent-soft: #ebe7f5;
+  --ok: #2b7a4b; --ok-soft: #e2f1e7;
+  --warn: #b26a00; --warn-soft: #fdf0d8;
+  --bad: #b3261e; --bad-soft: #fbe3e1;
+  --info: #1f5f9e; --info-soft: #e0ecf8;
+  --neutral: #7a8090; --neutral-soft: #eeeeeb;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15181f; --surface: #1e222b; --surface-2: #242934; --fg: #e8e6df; --muted: #a2a8b5; --line: #353a46;
+    --accent: #a898e0; --accent-soft: #2b2740;
+    --ok: #5fcf8a; --ok-soft: #1d3327; --warn: #f0b35a; --warn-soft: #3a2d16; --bad: #f28b82; --bad-soft: #3d1f1d;
+    --info: #74b3f0; --info-soft: #182a3d; --neutral: #8a909c; --neutral-soft: #262a33;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15181f; --surface: #1e222b; --surface-2: #242934; --fg: #e8e6df; --muted: #a2a8b5; --line: #353a46;
+  --accent: #a898e0; --accent-soft: #2b2740;
+  --ok: #5fcf8a; --ok-soft: #1d3327; --warn: #f0b35a; --warn-soft: #3a2d16; --bad: #f28b82; --bad-soft: #3d1f1d;
+  --info: #74b3f0; --info-soft: #182a3d; --neutral: #8a909c; --neutral-soft: #262a33;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--body); font-size: 14px; line-height: 1.4; padding-inline: 16px; padding-block: 0 40px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+h1, h2, h3 { font-family: var(--display); margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h1 { font-size: 1.25rem; font-weight: 700; }
+h2 { font-size: 0.95rem; font-weight: 700; }
+.mono { font-family: var(--mono); font-size: 0.78rem; font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); margin-inline: -16px; padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.topbar .brand { display: flex; gap: 10px; align-items: baseline; }
+.topbar .brand .eyebrow { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.topbar .spacer { flex: 1; }
+.topbar .fresh { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-family: var(--mono); font-size: 0.74rem; color: var(--muted); }
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); display: inline-block; }
+.pulse.busy { background: var(--warn); }
+.pulse.err { background: var(--bad); }
+button { font: inherit; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+input[type=password], input[type=text] { font: inherit; font-family: var(--mono); font-size: 0.8rem; color: var(--fg); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%; }
+
+main { max-width: 1400px; margin: 0 auto; display: grid; gap: 14px; padding-top: 14px; }
+.grid { display: grid; gap: 14px; grid-template-columns: repeat(12, minmax(0, 1fr)); align-items: start; }
+.panel { grid-column: span 12; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+.panel > header { display: flex; gap: 10px; align-items: baseline; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.panel > header .count { font-family: var(--mono); font-size: 0.74rem; color: var(--muted); }
+.panel > header .right { margin-left: auto; font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+.panel > .body { padding: 12px 14px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.span4 { grid-column: span 4; } .span6 { grid-column: span 6; } .span8 { grid-column: span 8; }
+@media (max-width: 1100px) { .span4 { grid-column: span 6; } .span8 { grid-column: span 12; } }
+@media (max-width: 720px) { .span4, .span6, .span8 { grid-column: span 12; } }
+
+.empty { color: var(--muted); font-size: 0.85rem; padding: 6px 0; }
+.err { color: var(--bad); font-size: 0.85rem; }
+.skeleton { height: 12px; border-radius: 4px; background: linear-gradient(90deg, var(--surface-2), var(--neutral-soft), var(--surface-2)); background-size: 200% 100%; animation: sh 1.2s infinite; }
+@keyframes sh { from { background-position: 200% 0 } to { background-position: -200% 0 } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
+.pill { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.03em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; border: 1px solid; white-space: nowrap; }
+.pill i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; background: currentColor; }
+.pill.ok { color: var(--ok); border-color: var(--ok); background: var(--ok-soft); }
+.pill.warn { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.pill.bad { color: var(--bad); border-color: var(--bad); background: var(--bad-soft); }
+.pill.info { color: var(--info); border-color: var(--info); background: var(--info-soft); }
+.pill.neutral { color: var(--neutral); border-color: var(--neutral); background: var(--neutral-soft); }
+.pill.accent { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+.row { display: flex; gap: 10px; align-items: baseline; min-width: 0; padding: 6px 0; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row .grow { flex: 1; min-width: 0; }
+.row .title { font-weight: 500; overflow-wrap: anywhere; }
+.row .sub { font-size: 0.78rem; color: var(--muted); overflow-wrap: anywhere; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 4px; }
+
+/* Attention strip */
+.attention { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.att { border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--surface); display: grid; gap: 2px; }
+.att .k { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.att .v { font-family: var(--display); font-weight: 700; font-size: 1.5rem; line-height: 1.1; }
+.att .d { font-size: 0.8rem; color: var(--muted); }
+.att.bad { border-color: var(--bad); } .att.warn { border-color: var(--warn); } .att.ok { border-color: var(--ok); }
+
+/* Phase strip */
+.phases { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 4px; }
+.ph { border: 1.5px solid var(--line); border-radius: 5px; padding: 5px 6px; font-size: 0.72rem; line-height: 1.2; min-width: 0; }
+.ph b { font-family: var(--display); font-size: 0.95rem; display: block; }
+.ph.done { border-color: var(--ok); background: var(--ok-soft); }
+.ph.active { border-color: var(--warn); background: var(--warn-soft); }
+.ph.planned { border-style: dashed; color: var(--muted); }
+@media (max-width: 720px) { .phases { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* Gate rules */
+.rule { display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line); }
+.rule:first-child { border-top: 0; }
+.rule .mark { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-size: 0.7rem; font-weight: 700; color: #fff; }
+.rule .mark.ok { background: var(--ok); } .rule .mark.bad { background: var(--bad); } .rule .mark.warn { background: var(--warn); } .rule .mark.neutral { background: var(--neutral); }
+.rule .why { font-size: 0.78rem; color: var(--muted); }
+
+/* Board */
+.board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.col { background: var(--surface-2); border-radius: 6px; padding: 8px; display: grid; gap: 6px; align-content: start; min-width: 0; }
+.col h3 { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; display: flex; justify-content: space-between; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; font-size: 0.8rem; display: grid; gap: 3px; min-width: 0; }
+.card .t { font-weight: 500; overflow-wrap: anywhere; }
+.card .m { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); }
+@media (max-width: 1100px) { .board { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 720px) { .board { grid-template-columns: 1fr; } }
+
+/* Token dialog */
+.dialog { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 14px; display: grid; gap: 10px; max-width: 720px; }
+.dialog ol { margin: 0; padding-left: 18px; font-size: 0.85rem; color: var(--muted); display: grid; gap: 4px; }
+.dialog .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+code { font-family: var(--mono); font-size: 0.8em; background: var(--surface-2); padding: 1px 4px; border-radius: 3px; }
+footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div class="brand">
+    <span class="eyebrow">Agentic software delivery</span>
+    <h1>TaleQuilt Factory Console</h1>
+  </div>
+  <div class="spacer"></div>
+  <div class="fresh">
+    <span><span class="pulse" id="pulse"></span> <span id="fresh">loading</span></span>
+    <span id="rate" title="GitHub API requests remaining this hour"></span>
+    <a href="pipeline-map.html">Map</a>
+    <a href="https://github.com/arhopkins3/talequilt" id="repolink">Repository</a>
+  </div>
+  <button id="refresh" type="button">Refresh</button>
+  <button id="tokenbtn" type="button">Token</button>
+</div>
+
+<main>
+  <section class="dialog" id="tokendlg" hidden>
+    <h2>GitHub token for faster refresh</h2>
+    <p class="muted" style="margin:0;font-size:.85rem">Optional. Without a token the console reads public data at GitHub's anonymous limit of 60 requests an hour, so it refreshes every ten minutes. With a token it refreshes every minute and also shows which pull requests propose ADR files. The token stays in this browser's local storage, is sent only to api.github.com, and is never written to the repository.</p>
+    <ol>
+      <li>GitHub, Settings, Developer settings, Personal access tokens, Fine-grained tokens, Generate new token.</li>
+      <li>Repository access: only <code>arhopkins3/talequilt</code>. Expiration: 90 days.</li>
+      <li>Repository permissions, all read-only: Actions, Contents, Deployments, Issues, Metadata, Pull requests.</li>
+    </ol>
+    <label for="token" class="muted" style="font-size:.8rem">Token</label>
+    <input type="password" id="token" autocomplete="off" placeholder="github_pat_...">
+    <div class="actions">
+      <button class="primary" id="tokensave" type="button">Save in this browser</button>
+      <button id="tokenclear" type="button">Remove token</button>
+      <button id="tokenclose" type="button">Close</button>
+    </div>
+  </section>
+
+  <section class="attention" id="attention" aria-label="Needs attention"></section>
+
+  <div class="grid">
+    <section class="panel span8">
+      <header><h2>Phases</h2><span class="right" id="asof"></span></header>
+      <div class="body"><div class="phases" id="phases"></div></div>
+    </section>
+    <section class="panel span4">
+      <header><h2>Gate G3 on main</h2><span class="count">live ruleset</span></header>
+      <div class="body" id="rules"><div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div></div>
+    </section>
+
+    <section class="panel">
+      <header><h2>Work in flight</h2><span class="count" id="boardcount"></span><span class="right">issues by gate label, pull requests, merged in 14 days</span></header>
+      <div class="body"><div class="board" id="board"></div></div>
+    </section>
+
+    <section class="panel span6">
+      <header><h2>Pull requests</h2><span class="count" id="prcount"></span><span class="right">checks on the latest commit</span></header>
+      <div class="body" id="prs"><div class="skeleton"></div><div class="skeleton"></div></div>
+    </section>
+    <section class="panel span6">
+      <header><h2>Agents</h2><span class="count" id="agentcount"></span><span class="right">workflows named "Agent: role"</span></header>
+      <div class="body" id="agents"><div class="skeleton"></div></div>
+    </section>
+
+    <section class="panel span6">
+      <header><h2>Workflow runs</h2><span class="count" id="runcount"></span><span class="right">latest 20</span></header>
+      <div class="body" id="runs"><div class="skeleton"></div><div class="skeleton"></div></div>
+    </section>
+    <section class="panel span6">
+      <header><h2>Architecture decisions</h2><span class="count" id="adrcount"></span><span class="right">docs/adr on main</span></header>
+      <div class="body" id="adrs"><div class="skeleton"></div><div class="skeleton"></div></div>
+    </section>
+
+    <section class="panel span6">
+      <header><h2>Deployments</h2><span class="count" id="depcount"></span><span class="right">staging and production, G4 approvals</span></header>
+      <div class="body" id="deps"><div class="skeleton"></div></div>
+    </section>
+    <section class="panel span6">
+      <header><h2>Activity</h2><span class="count" id="actcount"></span><span class="right">latest repository events</span></header>
+      <div class="body" id="activity"><div class="skeleton"></div><div class="skeleton"></div></div>
+    </section>
+  </div>
+
+  <footer>
+    Reads the GitHub API directly from your browser; nothing runs on a server. Agent runs, gate timings and metrics history arrive in Phase 4 (ADR 0014). Source: <code>docs/index.html</code>.
+  </footer>
+</main>
+
+<script src="factory-status.js"></script>
+<script>
+(() => {
+  const OWNER = "arhopkins3", REPO = "talequilt", API = `https://api.github.com/repos/${OWNER}/${REPO}`;
+  const TOKEN_KEY = "tq.console.token";
+  const GATE_LABELS = { needs: "gate/needs-spec", spec: "gate/spec-approved", plan: "gate/plan-approved", small: "size/small" };
+
+  // --- tiny DOM helper: all API text goes through textContent, never innerHTML ---
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v == null) continue;
+      if (k === "class") n.className = v;
+      else if (k === "href") { if (typeof v === "string" && /^https:\/\/(github\.com|api\.github\.com)\//.test(v)) { n.href = v; n.target = "_blank"; n.rel = "noopener"; } }
+      else if (k === "title") n.title = v;
+      else n.setAttribute(k, v);
+    }
+    for (const kid of kids.flat()) { if (kid == null) continue; n.append(kid.nodeType ? kid : document.createTextNode(String(kid))); }
+    return n;
+  };
+  const pill = (kind, text, title) => el("span", { class: `pill ${kind}`, title }, el("i"), text);
+  const replace = (id, ...kids) => { const n = document.getElementById(id); n.replaceChildren(...kids.flat().filter(Boolean)); return n; };
+  const setText = (id, t) => { document.getElementById(id).textContent = t; };
+  const fmtAgo = (iso) => { if (!iso) return ""; const s = Math.max(0, (Date.now() - new Date(iso)) / 1000); if (s < 60) return `${Math.round(s)}s ago`; if (s < 3600) return `${Math.round(s / 60)}m ago`; if (s < 86400) return `${Math.round(s / 3600)}h ago`; return `${Math.round(s / 86400)}d ago`; };
+  const fmtDur = (a, b) => { if (!a) return ""; const s = Math.max(0, ((b ? new Date(b) : Date.now()) - new Date(a)) / 1000); return s < 60 ? `${Math.round(s)}s` : s < 3600 ? `${Math.floor(s / 60)}m ${Math.round(s % 60)}s` : `${Math.floor(s / 3600)}h ${Math.round((s % 3600) / 60)}m`; };
+
+  // --- token ---
+  let token = null; try { token = localStorage.getItem(TOKEN_KEY) || null; } catch (e) { token = null; }
+  const dlg = document.getElementById("tokendlg");
+  document.getElementById("tokenbtn").onclick = () => { dlg.hidden = !dlg.hidden; };
+  document.getElementById("tokenclose").onclick = () => { dlg.hidden = true; };
+  document.getElementById("tokensave").onclick = () => { const v = document.getElementById("token").value.trim(); if (!v) return; token = v; try { localStorage.setItem(TOKEN_KEY, v); } catch (e) {} document.getElementById("token").value = ""; dlg.hidden = true; refresh(); };
+  document.getElementById("tokenclear").onclick = () => { token = null; try { localStorage.removeItem(TOKEN_KEY); } catch (e) {} dlg.hidden = true; refresh(); };
+
+  // --- fetch with rate-limit bookkeeping ---
+  const rate = { remaining: null, limit: null, reset: null };
+  async function gh(path, accept = "application/vnd.github+json") {
+    const headers = { Accept: accept, "X-GitHub-Api-Version": "2022-11-28" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const r = await fetch(API + path, { headers });
+    const rem = r.headers.get("x-ratelimit-remaining"); if (rem != null) { rate.remaining = +rem; rate.limit = +r.headers.get("x-ratelimit-limit"); rate.reset = +r.headers.get("x-ratelimit-reset") * 1000; }
+    if (!r.ok) { const e = new Error(`${r.status} ${r.statusText}`); e.status = r.status; throw e; }
+    return accept.includes("raw") ? r.text() : r.json();
+  }
+  const errRow = (e, what) => el("div", { class: "err" }, e.status === 403 && rate.remaining === 0 ? `GitHub rate limit reached while loading ${what}. Resets ${fmtAgo(new Date(rate.reset).toISOString()).replace(" ago", "")} from now, or add a token.` : e.status === 401 ? `The saved token was rejected (401). Remove it or paste a new one.` : `Could not load ${what}: ${e.message}`);
+
+  // --- static status: phases ---
+  const F = window.FACTORY || { phases: [], asOf: "" };
+  setText("asof", F.asOf ? `static status as of ${F.asOf}` : "");
+  replace("phases", F.phases.map(p => el("div", { class: `ph ${p.status}`, title: p.exit }, el("b", {}, String(p.n)), p.title)));
+
+  // --- attention row (filled from the other loaders) ---
+  const attention = { prsReady: null, failing: null, pending: null, agentsRunning: null, g3: null, rate: null };
+  function renderAttention() {
+    const items = [];
+    if (attention.g3 != null) items.push(el("div", { class: `att ${attention.g3.ok ? "ok" : "bad"}` }, el("div", { class: "k" }, "Gate G3 on main"), el("div", { class: "v" }, attention.g3.ok ? "Protected" : "Open"), el("div", { class: "d" }, attention.g3.text)));
+    if (attention.prsReady != null) items.push(el("div", { class: `att ${attention.prsReady ? "warn" : ""}` }, el("div", { class: "k" }, "Pull requests awaiting Alex"), el("div", { class: "v num" }, String(attention.prsReady)), el("div", { class: "d" }, "open, not draft, checks not failing")));
+    if (attention.failing != null) items.push(el("div", { class: `att ${attention.failing ? "bad" : "ok"}` }, el("div", { class: "k" }, "Failing checks"), el("div", { class: "v num" }, String(attention.failing)), el("div", { class: "d" }, "on open pull requests")));
+    if (attention.agentsRunning != null) items.push(el("div", { class: `att ${attention.agentsRunning ? "warn" : ""}` }, el("div", { class: "k" }, "Agents running"), el("div", { class: "v num" }, String(attention.agentsRunning)), el("div", { class: "d" }, "workflow runs in progress")));
+    if (attention.pending != null) items.push(el("div", { class: `att ${attention.pending ? "warn" : ""}` }, el("div", { class: "k" }, "Deployments awaiting G4"), el("div", { class: "v num" }, String(attention.pending)), el("div", { class: "d" }, "production approvals pending")));
+    replace("attention", items);
+  }
+
+  // --- loaders, each independent ---
+  async function loadRules() {
+    try {
+      const rules = await gh("/rules/branches/main");
+      const by = t => rules.find(r => r.type === t);
+      const pr = by("pull_request"), del = by("deletion"), nff = by("non_fast_forward"), checks = by("required_status_checks");
+      const approvals = pr?.parameters?.required_approving_review_count ?? 0;
+      const rows = [
+        ["Pull request required before merging", !!pr, pr ? "direct pushes to main are rejected" : "anyone with write access can push to main"],
+        ["Required approvals", pr ? (approvals >= 1 ? "ok" : "warn") : "bad", pr ? `${approvals} (becomes 1 in Phase 4, ADR 0013)` : "no pull request rule"],
+        ["Conversation resolution", !!pr?.parameters?.required_review_thread_resolution, "review threads must be resolved"],
+        ["Dismiss stale approvals on push", !!pr?.parameters?.dismiss_stale_reviews_on_push, "a new commit re-opens the review"],
+        ["Force pushes blocked", !!nff, "history on main is immutable"],
+        ["Deletion blocked", !!del, "main cannot be deleted"],
+        ["Required status checks", checks ? "ok" : "neutral", checks ? `${(checks.parameters?.required_status_checks || []).length} checks required` : "none yet; Phase 1 adds build, test, lint, coverage"],
+      ];
+      replace("rules", rows.map(([t, s, why]) => { const k = s === true ? "ok" : s === false ? "bad" : s; return el("div", { class: "rule" }, el("span", { class: `mark ${k}` }, k === "ok" ? "✓" : k === "bad" ? "✕" : "·"), el("div", {}, el("div", {}, t), el("div", { class: "why" }, why)), null); }));
+      attention.g3 = { ok: !!pr && !!nff, text: pr ? `${rules.length} rules active, ${approvals} approvals required` : "no ruleset on main yet; apply it before merging" };
+    } catch (e) { replace("rules", errRow(e, "the main ruleset")); }
+    renderAttention();
+  }
+
+  async function loadWork() {
+    try {
+      const [issuesRaw, openPRs, closedPRs] = await Promise.all([
+        gh("/issues?state=open&per_page=100"),
+        gh("/pulls?state=open&per_page=30"),
+        gh("/pulls?state=closed&sort=updated&direction=desc&per_page=20"),
+      ]);
+      const issues = issuesRaw.filter(i => !i.pull_request);
+      const has = (i, l) => i.labels.some(x => x.name === l);
+      const cols = [
+        ["Backlog", i => !has(i, GATE_LABELS.spec), "no spec yet"],
+        ["Spec approved (G1)", i => has(i, GATE_LABELS.spec) && !has(i, GATE_LABELS.plan) && !has(i, GATE_LABELS.small), "awaiting plan"],
+        ["Ready to build (G2)", i => has(i, GATE_LABELS.spec) && (has(i, GATE_LABELS.plan) || has(i, GATE_LABELS.small)), "plan approved or small"],
+      ];
+      const since = Date.now() - 14 * 86400e3;
+      const merged = closedPRs.filter(p => p.merged_at && new Date(p.merged_at) > since);
+      const card = (t, m, href, extra) => el("a", { class: "card", href }, el("div", { class: "t" }, t), el("div", { class: "m" }, m), extra);
+      const colEl = (title, cards, hint) => el("div", { class: "col" }, el("h3", {}, el("span", {}, title), el("span", {}, String(cards.length))), cards.length ? cards : el("div", { class: "empty" }, hint));
+      const board = [
+        ...cols.map(([title, f, hint]) => colEl(title, issues.filter(f).map(i => card(`#${i.number} ${i.title}`, `${i.labels.map(l => l.name).join(", ") || "no labels"} · ${fmtAgo(i.updated_at)}`, i.html_url)), hint === "no spec yet" ? "no open issues" : hint === "awaiting plan" ? "nothing awaiting a plan" : "nothing ready to build")),
+        colEl("In review (G3)", openPRs.map(p => card(`#${p.number} ${p.title}`, `${p.draft ? "draft · " : ""}${p.head.ref} · ${fmtAgo(p.updated_at)}`, p.html_url)), "no open pull requests"),
+        colEl("Merged, 14 days", merged.map(p => card(`#${p.number} ${p.title}`, `merged ${fmtAgo(p.merged_at)}`, p.html_url)), "nothing merged yet"),
+      ];
+      replace("board", board);
+      setText("boardcount", `${issues.length} issues · ${openPRs.length} open PRs · ${merged.length} merged`);
+      await loadPRs(openPRs);
+    } catch (e) { replace("board", errRow(e, "issues and pull requests")); }
+  }
+
+  async function loadPRs(openPRs) {
+    try {
+      const detailed = await Promise.all(openPRs.slice(0, 10).map(async p => {
+        const [full, checks, files] = await Promise.all([
+          gh(`/pulls/${p.number}`),
+          gh(`/commits/${p.head.sha}/check-runs?per_page=50`).catch(() => ({ check_runs: [] })),
+          token ? gh(`/pulls/${p.number}/files?per_page=100`).catch(() => []) : Promise.resolve([]),
+        ]);
+        return { p: full, checks: checks.check_runs || [], adrs: files.filter(f => /^docs\/adr\/\d{4}-/.test(f.filename)).length };
+      }));
+      let failing = 0, ready = 0;
+      const rows = detailed.map(({ p, checks, adrs }) => {
+        const bad = checks.filter(c => ["failure", "timed_out", "cancelled", "action_required"].includes(c.conclusion));
+        const running = checks.filter(c => c.status !== "completed");
+        failing += bad.length;
+        if (!p.draft && bad.length === 0) ready++;
+        const state = p.draft ? pill("neutral", "draft") : bad.length ? pill("bad", `${bad.length} failing`) : running.length ? pill("warn", `${running.length} running`) : checks.length ? pill("ok", "checks green") : pill("neutral", "no checks yet");
+        const merge = pill(p.mergeable_state === "clean" ? "ok" : p.mergeable_state === "dirty" ? "bad" : "neutral", p.mergeable_state === "dirty" ? "conflict" : p.mergeable_state || "unknown", "mergeable state");
+        return el("div", { class: "row" }, el("div", { class: "grow" },
+          el("div", { class: "title" }, el("a", { href: p.html_url }, `#${p.number} ${p.title}`)),
+          el("div", { class: "sub" }, `${p.head.ref} → ${p.base.ref} · ${p.commits} commits · ${p.changed_files} files · +${p.additions} −${p.deletions} · updated ${fmtAgo(p.updated_at)}${adrs ? ` · ${adrs} ADR file${adrs > 1 ? "s" : ""} proposed` : ""}`),
+          el("div", { class: "chips" }, state, merge, ...checks.map(c => pill(c.status !== "completed" ? "warn" : c.conclusion === "success" ? "ok" : c.conclusion === "skipped" || c.conclusion === "neutral" ? "neutral" : "bad", c.name, `${c.app?.name || ""} ${c.conclusion || c.status}`)))));
+      });
+      replace("prs", rows.length ? rows : el("div", { class: "empty" }, "No open pull requests."));
+      setText("prcount", `${openPRs.length} open`);
+      attention.failing = failing; attention.prsReady = ready;
+    } catch (e) { replace("prs", errRow(e, "pull request details")); }
+    renderAttention();
+  }
+
+  async function loadRuns() {
+    try {
+      const data = await gh("/actions/runs?per_page=20");
+      const runs = data.workflow_runs || [];
+      const isAgent = r => /^agent:/i.test(r.name || "");
+      const kind = r => r.status !== "completed" ? "warn" : r.conclusion === "success" ? "ok" : r.conclusion === "skipped" || r.conclusion === "neutral" ? "neutral" : "bad";
+      const row = r => el("div", { class: "row" }, el("div", { class: "grow" },
+        el("div", { class: "title" }, el("a", { href: r.html_url }, r.name), isAgent(r) ? [" ", pill("accent", "agent")] : null),
+        el("div", { class: "sub" }, `${r.event} · ${r.head_branch || ""} · ${r.display_title || ""} · ${r.status === "completed" ? `${r.conclusion} in ${fmtDur(r.run_started_at, r.updated_at)}` : `${r.status} for ${fmtDur(r.run_started_at)}`} · ${fmtAgo(r.created_at)}`)),
+        pill(kind(r), r.status === "completed" ? (r.conclusion || "done") : r.status));
+      replace("runs", runs.length ? runs.map(row) : el("div", { class: "empty" }, "No workflow runs yet. Phase 1 adds build, test and lint."));
+      setText("runcount", `${runs.length} shown`);
+      const agents = runs.filter(isAgent);
+      const live = agents.filter(r => r.status !== "completed");
+      replace("agents", agents.length ? agents.map(row) : el("div", { class: "empty" }, "No agent workflows yet. Phase 4 adds the spec, planner, builder, reviewer, security, release and triage agents as workflows named “Agent: role”; their runs appear here with what they are working on and for how long."));
+      setText("agentcount", agents.length ? `${live.length} running · ${agents.length} recent` : "phase 4");
+      attention.agentsRunning = live.length;
+      const waiting = runs.filter(r => r.status === "waiting");
+      const pend = (await Promise.all(waiting.slice(0, 5).map(r => gh(`/actions/runs/${r.id}/pending_deployments`).catch(() => [])))).flat();
+      attention.pending = pend.length;
+      window.__pendingDeployments = pend;
+    } catch (e) { replace("runs", errRow(e, "workflow runs")); replace("agents", errRow(e, "agent runs")); }
+    renderAttention();
+  }
+
+  async function loadADRs() {
+    try {
+      const md = await gh("/contents/docs/adr/README.md?ref=main", "application/vnd.github.raw+json");
+      const rows = [...md.matchAll(/^\|\s*\[(\d{4})\]\(([^)]+)\)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*$/gm)].map(m => ({ n: m[1], file: m[2], title: m[3], status: m[4] }));
+      const kind = s => /^accepted/i.test(s) ? "ok" : /^proposed/i.test(s) ? "warn" : /superseded|deprecated/i.test(s) ? "neutral" : "info";
+      replace("adrs", rows.length ? rows.map(a => el("div", { class: "row" }, el("div", { class: "grow" }, el("div", { class: "title" }, el("a", { href: `https://github.com/${OWNER}/${REPO}/blob/main/docs/adr/${a.file}` }, `${a.n} ${a.title}`))), pill(kind(a.status), a.status.replace(/[;,].*$/, "").trim(), a.status))) : el("div", { class: "empty" }, "No ADRs on main yet."));
+      const counts = rows.reduce((m, a) => (m[kind(a.status)] = (m[kind(a.status)] || 0) + 1, m), {});
+      setText("adrcount", rows.length ? `${rows.length} · ${counts.ok || 0} accepted · ${counts.warn || 0} proposed` : "none on main");
+    } catch (e) {
+      if (e.status === 404) { replace("adrs", el("div", { class: "empty" }, "No ADRs on main yet. Open pull requests proposing ADR files are counted in the Pull requests panel.")); setText("adrcount", "none on main"); }
+      else replace("adrs", errRow(e, "ADRs"));
+    }
+  }
+
+  async function loadDeployments() {
+    try {
+      const deps = await gh("/deployments?per_page=10");
+      const withStatus = await Promise.all(deps.slice(0, 6).map(async d => ({ d, s: (await gh(`/deployments/${d.id}/statuses?per_page=1`).catch(() => []))[0] })));
+      const pend = window.__pendingDeployments || [];
+      const rows = [
+        ...pend.map(pd => el("div", { class: "row" }, el("div", { class: "grow" }, el("div", { class: "title" }, `${pd.environment?.name || "environment"} awaiting approval`), el("div", { class: "sub" }, "Gate G4: Alex approves in the workflow run")), pill("warn", "pending G4"))),
+        ...withStatus.map(({ d, s }) => el("div", { class: "row" }, el("div", { class: "grow" }, el("div", { class: "title" }, `${d.environment} · ${(d.ref || "").slice(0, 40)}`), el("div", { class: "sub" }, `${d.task} · ${(d.sha || "").slice(0, 7)} · ${fmtAgo(d.created_at)}${s?.log_url ? " · " : ""}`, s?.log_url ? el("a", { href: s.log_url }, "log") : null)), pill(s ? (s.state === "success" ? "ok" : s.state === "failure" || s.state === "error" ? "bad" : s.state === "in_progress" || s.state === "pending" || s.state === "queued" ? "warn" : "neutral") : "neutral", s?.state || "no status"))),
+      ];
+      replace("deps", rows.length ? rows : el("div", { class: "empty" }, "No deployments yet. Phase 3 adds staging on merge and production behind G4; both will appear here with their status and any pending approval."));
+      setText("depcount", deps.length ? `${deps.length} recent` : "phase 3");
+    } catch (e) { replace("deps", errRow(e, "deployments")); }
+  }
+
+  async function loadActivity() {
+    try {
+      const ev = await gh("/events?per_page=30");
+      const describe = e => {
+        const p = e.payload || {}, a = e.actor?.display_login || e.actor?.login || "someone";
+        switch (e.type) {
+          case "PushEvent": return [`${a} pushed ${p.size || p.commits?.length || ""} commit${(p.size || 0) === 1 ? "" : "s"} to ${(p.ref || "").replace("refs/heads/", "")}`, null];
+          case "PullRequestEvent": return [`${a} ${p.action} pull request #${p.number}`, p.pull_request?.html_url];
+          case "PullRequestReviewEvent": return [`${a} reviewed #${p.pull_request?.number}: ${p.review?.state || ""}`, p.pull_request?.html_url];
+          case "PullRequestReviewCommentEvent": return [`${a} commented on #${p.pull_request?.number}`, p.comment?.html_url];
+          case "IssuesEvent": return [`${a} ${p.action} issue #${p.issue?.number}`, p.issue?.html_url];
+          case "IssueCommentEvent": return [`${a} commented on #${p.issue?.number}`, p.comment?.html_url];
+          case "CreateEvent": return [`${a} created ${p.ref_type} ${p.ref || ""}`, null];
+          case "DeleteEvent": return [`${a} deleted ${p.ref_type} ${p.ref || ""}`, null];
+          case "ReleaseEvent": return [`${a} ${p.action} release ${p.release?.tag_name || ""}`, p.release?.html_url];
+          default: return [`${a}: ${e.type.replace(/Event$/, "")}`, null];
+        }
+      };
+      replace("activity", ev.length ? ev.map(e => { const [t, href] = describe(e); return el("div", { class: "row" }, el("div", { class: "grow" }, el("div", { class: "title" }, href ? el("a", { href }, t) : t)), el("span", { class: "mono muted" }, fmtAgo(e.created_at))); }) : el("div", { class: "empty" }, "No recent events."));
+      setText("actcount", `${ev.length} events`);
+    } catch (e) { replace("activity", errRow(e, "activity")); }
+  }
+
+  // --- refresh loop ---
+  let busy = false, timer = null;
+  async function refresh() {
+    if (busy) return; busy = true;
+    const pulse = document.getElementById("pulse"); pulse.className = "pulse busy"; setText("fresh", "refreshing");
+    try {
+      await Promise.all([loadRules(), loadWork(), loadRuns().then(loadDeployments), loadADRs(), loadActivity()]);
+      pulse.className = "pulse"; setText("fresh", `updated ${new Date().toLocaleTimeString()}`);
+    } catch (e) { pulse.className = "pulse err"; setText("fresh", "some panels failed"); }
+    if (rate.remaining != null) setText("rate", `${rate.remaining}/${rate.limit} API calls left${token ? "" : " · anonymous"}`);
+    busy = false; schedule();
+  }
+  function schedule() {
+    clearTimeout(timer);
+    const interval = token ? 60e3 : 600e3; // anonymous limit is 60 calls an hour; a refresh costs about ten
+    timer = setTimeout(() => { if (!document.hidden) refresh(); else schedule(); }, interval);
+  }
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
+  document.getElementById("refresh").onclick = refresh;
+  refresh();
+})();
+</script>
+</body>
+</html>
