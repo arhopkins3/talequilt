@@ -83,7 +83,7 @@ Every merged pull request should let an auditor reconstruct: the issue, the appr
 | Segregation of duties | Agent authors, Alex approves (from Phase 4) | Enforced by required approvals, code owners and no admin bypass; sampled by auditors |
 | Data and intellectual property | Provider interface; Azure-hosted path available | Model calls routed through the company's cloud account and gateway with agreed retention |
 | Agent security | Guardrails above; security reviewer; code owner rule | Least-privilege identities per agent, prompt-injection testing, secrets scanning, central policy |
-| Supply chain | Pinned actions and dependencies, bill of materials (Phase 2) | SLSA levels, provenance attestations, internal registries |
+| Supply chain | Actions pinned by SHA with Dependabot bumps, dependency review with a licence allow list (ADR 0019); bill of materials (Phase 2) | SLSA levels, provenance attestations, internal registries |
 | Quality of AI output | Tests as contract, independent reviewer, AI evals | Eval suites per prompt, review fatigue managed by small pull requests and sampling |
 | Cost | Bounded runs, spend caps, cost metrics | Budgets per team, cheaper models for simpler roles, chargeback |
 | Measurement | Phase 4 metrics, Phase 8 case study | Baseline before rollout; DORA metrics compared before and after |
