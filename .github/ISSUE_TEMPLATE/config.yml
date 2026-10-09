@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Operating model
+    url: https://github.com/arhopkins3/talequilt/blob/main/docs/operating-model.md
+    about: How an issue becomes a change, and where Alex approves.
