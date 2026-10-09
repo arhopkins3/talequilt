@@ -22,7 +22,7 @@ React single-page app, ASP.NET Core API, Azure SQL, Azure Blob Storage and Stora
 
 ## Status
 
-Phase 0, Foundations. No application code yet. See [`docs/phases/phase-0-foundations.md`](docs/phases/phase-0-foundations.md).
+Phase 0, Foundations, complete. Phase 1, Skeleton and CI, starting. No application code yet. Live view: [Factory Console](https://arhopkins3.github.io/talequilt/) and [map](https://arhopkins3.github.io/talequilt/pipeline-map.html).
 
 ## Licence
 
