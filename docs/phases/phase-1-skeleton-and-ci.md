@@ -61,12 +61,16 @@ Without Docker, point the integration tests at any SQL Server: `TALEQUILT_TEST_C
 
 ## Break it: the drill
 
-Run after the checks are required. Each pull request should show a red check and a disabled merge button; fixing it turns the check green.
+Run after the checks are required. Each pull request should show a red check and a disabled merge button.
 
-1. **Failing test.** On a branch, change the expected title in `tests/TaleQuilt.Core.Tests/BookTests.cs` so it no longer matches, push, open a pull request. `API build and test` fails on the test step.
-2. **Lint error.** On another branch, add an unused variable to `src/web/src/App.tsx` (for example `const unused = 1;`), push, open a pull request. `Web build and test` fails on the lint or type-check step.
-3. **Coverage drop.** Add a new public method to `Book` with no test. `API build and test` fails on the coverage step with the project's percentage in the log.
-4. Fix each, push, and watch the checks go green. Close the pull requests without merging.
+1. **Failing test.** A Core test asserting behaviour nobody has implemented. `API build and test` fails on the test step.
+2. **Lint error.** A `let` for a value that is never reassigned, so ESLint's `prefer-const` rule fails while Prettier, the type check and the tests still pass. `Web build and test` fails on the lint step.
+3. **Coverage drop.** A new public class in the worker with no tests. It builds clean and every existing test passes; `API build and test` fails on the coverage step with the project's percentage in the log.
+4. Close the pull requests without merging.
+
+### Drill result (9 October 2026)
+
+Alex chose to have the agent open the three pull requests (#14, #15, #16), each verified locally to fail exactly one thing before it was pushed. All three went red on the intended check and green on the other two, the ruleset disabled the merge button on each, and Alex closed them unmerged. Copilot and the triage agent ran on each as a side benefit; what they said, including an unplanned bug Copilot found in the drill code, is in the debrief. The planned "fix each and watch it go green" step was dropped: green is proved on every real pull request, and three more CI cycles would have shown nothing new.
 
 ## Review findings and what came of them
 
@@ -74,4 +78,4 @@ Copilot code review left seven findings on the Phase 1 pull request after it mer
 
 ## Debrief
 
-Written in `docs/learning-log.md` after the drill.
+In `docs/learning-log.md`, Phase 1 entry.
