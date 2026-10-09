@@ -23,7 +23,7 @@ Phase 1 proved a pull request cannot merge unless it builds and its tests pass. 
 
 ### Alternatives
 
-To be recorded in ADR 0019 (security gates) and ADR 0020 (triage agent hardening) once Alex has answered the survey below. The main choices are listed under Decide.
+ADR 0019 (security gates) records the options and the choices; ADR 0020 (triage agent hardening) follows with the third build pull request.
 
 ### At company scale
 
@@ -31,7 +31,7 @@ Most of this is switched on at the organisation level and cannot be turned off p
 
 ## Decide
 
-Questions for Alex, each with a recommendation. Settled answers are recorded here and in ADR 0019.
+Settled in the Phase 2 survey on 9 October 2026: all seven as recommended, recorded in ADR 0019. The questions and options are kept below as the record of what was considered.
 
 1. **CodeQL setup.** (a) GitHub's default setup, configured in the repository settings and managed by GitHub; (b) an advanced setup as a workflow in `.github/workflows/`, pinned, with the languages and query suites under version control, reporting a check the ruleset can require. Recommendation: (b), because the gate should be code Alex owns, like every other gate here.
 2. **Dependency updates.** (a) Dependabot, native, grouped updates, free; (b) Renovate, more configurable, runs as an app. Recommendation: (a). Both open pull requests the pipeline then checks like any other.

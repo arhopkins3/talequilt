@@ -22,3 +22,4 @@ An architecture decision record (ADR) captures one significant choice: the conte
 | [0016](0016-data-access-and-test-database.md) | EF Core with SQL Server; integration tests against a real SQL Server | Accepted |
 | [0017](0017-quality-gates-and-ci.md) | Quality gates: format, lint, build, tests and coverage as required status checks | Accepted |
 | [0018](0018-review-triage-agent.md) | Review triage agent: independent verdicts on external review findings, comment-only | Accepted |
+| [0019](0019-security-gates.md) | Security gates: CodeQL, dependency review with a licence allow list, two-layer secret scanning, CycloneDX SBOM, actions pinned by SHA | Accepted |
