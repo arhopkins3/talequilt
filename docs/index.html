@@ -480,7 +480,12 @@ footer { font-size: 0.78rem; color: var(--muted); border-top: 1px solid var(--li
     return [
       station("Merged", mergedText, !head ? "skipped" : "done", mergedDetail),
       station("CI on main", { pending: "did not run", active: "running", done: "green", failed: "red", skipped: "unavailable" }[runState(ci)], runState(ci), ci ? `${ci.head_sha.slice(0, 7)} · ${fmtAgo(ci.created_at)}` : runs && sha ? "no CI run for this commit" : "could not read workflow runs"),
-      station("Pages deploy", { pending: "did not run", active: "deploying", done: "live", failed: "failed", skipped: "unavailable" }[runState(pages)], runState(pages), pages ? `console and map · ${fmtAgo(pages.created_at)}` : runs && sha ? "no Pages run for this commit" : "could not read workflow runs"),
+      // Pages runs only after CI succeeds on main, so while CI is running or red the deploy has not been asked for.
+      pages || !ci || runState(ci) === "skipped"
+        ? station("Pages deploy", { pending: "did not run", active: "deploying", done: "live", failed: "failed", skipped: "unavailable" }[runState(pages)], runState(pages), pages ? `console and map · ${fmtAgo(pages.created_at)}` : runs && sha ? "no Pages run for this commit" : "could not read workflow runs")
+        : runState(ci) === "failed"
+          ? station("Pages deploy", "held", "skipped", "CI is red, so nothing is deployed")
+          : station("Pages deploy", "waiting for CI", "pending", "deploys the commit CI passes"),
       station("Staging", "phase 3", "pending", "Container Apps, Playwright, ZAP"),
       station("Alex: G4", "phase 3", "pending", "approves the production deploy"),
       station("Production", "phase 3", "pending", "smoke tests, rollback"),
