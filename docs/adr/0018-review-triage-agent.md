@@ -40,6 +40,8 @@ The check is not required by the ruleset yet. After a few pull requests show the
 
 **Self-protection the platform adds.** The Claude GitHub App refuses to run when the workflow file on the pull request differs from the one on `main` ("the workflow file must exist and have identical content to the version on the repository's default branch"). A pull request therefore cannot edit this agent's workflow and have the edited version act on the repository; changes to the agent take effect only after Alex merges them. On such pull requests the check reports neutral with "Agent did not run", never a clean zero. This is the "agents cannot change the rules" guardrail enforced by the vendor as well as by CODEOWNERS.
 
+**A red check stays red until the diff says otherwise.** On each later push the agent re-reads every thread it earlier marked `fix-now`, checks the new diff against the finding, and either replies "Fixed in <sha>" (verdict `fixed`, not blocking) or carries the finding forward silently as still open (blocking). A finding is never marked fixed on the strength of a comment that says it is; only the diff counts. `needs-alex` findings stay blocking until Alex resolves the thread. This closes the gap where a new push would otherwise have turned a red check green regardless of what it changed.
+
 **Reviewer cadence.** Copilot reviews a pull request when it opens or becomes ready for review; it reviews later pushes only when the ruleset's automatic-review setting asks for new pushes. The wait is 15 minutes on open and 6 on a later push, after which the agent triages whatever unresolved threads exist.
 
 ## Consequences

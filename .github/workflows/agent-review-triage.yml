@@ -175,7 +175,7 @@ jobs:
             const sha = process.env.HEAD_SHA;
             // Blocking is derived here from the verdict recorded by eng/triage/reply.sh, never read from model output.
             const BLOCKING = new Set(['fix-now', 'needs-alex']);
-            const ALLOWED = new Set(['fix-now', 'defer', 'not-an-issue', 'needs-alex', 'in-discussion']);
+            const ALLOWED = new Set(['fix-now', 'defer', 'not-an-issue', 'needs-alex', 'fixed', 'in-discussion']);
             let conclusion = 'neutral', title = '', summary = '';
             {
               let findings = [];
@@ -200,8 +200,9 @@ jobs:
               } else {
                 conclusion = blocking.length ? 'failure' : 'success';
                 const seen = findings.filter(f => f.verdict === 'in-discussion').length;
+                const fixed = findings.filter(f => f.verdict === 'fixed').length;
                 const triaged = findings.length - seen;
-                title = `${triaged} finding(s) triaged, ${blocking.length} need action${seen ? `, ${seen} already in discussion` : ''}${process.env.REVIEW_FOUND === '1' ? '' : ' (no Copilot review of this commit within 15 minutes)'}`;
+                title = `${triaged} finding(s) triaged, ${blocking.length} need action${fixed ? `, ${fixed} fixed since` : ''}${seen ? `, ${seen} already in discussion` : ''}${process.env.REVIEW_FOUND === '1' ? '' : ' (no Copilot review of this commit)'}`;
                 const rows = findings.map(f => `| ${f.verdict} | ${f.comment_id} | ${f.summary || ''} ${f.issue ? `([issue](${f.issue}))` : ''} |`).join('\n');
                 summary = `| Verdict | Comment | Summary |\n| --- | --- | --- |\n${rows || '| none | | no unresolved review threads |'}`;
               }
