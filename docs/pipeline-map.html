@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TaleQuilt Factory Map</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a header with legend and phase strip, then the seven-stage flow as quilt patches
+   joined by seams and gates, then the deployment path as one SVG, then guardrails and roadmap. */
+:root {
+  --bg: #f6f5f1;
+  --surface: #ffffff;
+  --fg: #1f2430;
+  --muted: #5b6270;
+  --line: #d5d3cc;
+  --accent: #5b4b8a;          /* indigo thread */
+  --accent-soft: #ebe7f5;
+  --done: #2b7a4b;            /* complete */
+  --done-soft: #e2f1e7;
+  --active: #b26a00;          /* in progress */
+  --active-soft: #fdf0d8;
+  --manual: #1f5f9e;          /* done by Alex by hand until automated */
+  --manual-soft: #e0ecf8;
+  --planned: #7a8090;         /* not yet built */
+  --planned-soft: #f0f0ee;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", Helvetica, Arial, sans-serif;
+  --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171a21; --surface: #1f232c; --fg: #e8e6df; --muted: #a2a8b5; --line: #353a46;
+    --accent: #a898e0; --accent-soft: #2b2740;
+    --done: #5fcf8a; --done-soft: #1d3327;
+    --active: #f0b35a; --active-soft: #3a2d16;
+    --manual: #74b3f0; --manual-soft: #182a3d;
+    --planned: #8a909c; --planned-soft: #262a33;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171a21; --surface: #1f232c; --fg: #e8e6df; --muted: #a2a8b5; --line: #353a46;
+  --accent: #a898e0; --accent-soft: #2b2740;
+  --done: #5fcf8a; --done-soft: #1d3327;
+  --active: #f0b35a; --active-soft: #3a2d16;
+  --manual: #74b3f0; --manual-soft: #182a3d;
+  --planned: #8a909c; --planned-soft: #262a33;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--body); font-size: 15px; line-height: 1.45;
+  padding-inline: 16px; padding-block: 24px 48px;
+}
+.wrap { max-width: 1240px; margin: 0 auto; display: grid; gap: 36px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: clamp(1.7rem, 3vw, 2.4rem); font-weight: 700; }
+h2 { font-size: 1.25rem; font-weight: 700; }
+h3 { font-size: 1rem; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+.muted { color: var(--muted); }
+.mono { font-family: var(--mono); font-size: 0.8rem; }
+.eyebrow { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+header { display: grid; gap: 14px; }
+header .top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: baseline; justify-content: space-between; }
+.asof { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
+
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; font-size: 0.85rem; }
+.swatch { width: 14px; height: 14px; border-radius: 3px; border: 2px solid; }
+.swatch.done { background: var(--done-soft); border-color: var(--done); }
+.swatch.active { background: var(--active-soft); border-color: var(--active); }
+.swatch.manual { background: var(--manual-soft); border-color: var(--manual); }
+.swatch.planned { background: var(--planned-soft); border-color: var(--planned); border-style: dashed; }
+
+/* Phase strip */
+.phases { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 6px; }
+.phase { border: 2px solid var(--line); border-radius: 6px; padding: 8px 8px 10px; background: var(--surface); min-width: 0; position: relative; }
+.phase .n { font-family: var(--display); font-weight: 700; font-size: 1.15rem; line-height: 1; }
+.phase .t { font-size: 0.78rem; line-height: 1.25; margin-top: 4px; }
+.phase.done { border-color: var(--done); background: var(--done-soft); }
+.phase.active { border-color: var(--active); background: var(--active-soft); }
+.phase.planned { border-style: dashed; color: var(--muted); }
+.phase .here { position: absolute; top: -10px; right: 6px; font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.06em; text-transform: uppercase; background: var(--active); color: #fff; padding: 1px 6px; border-radius: 3px; }
+@media (max-width: 760px) { .phases { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+
+/* Pipeline flow: a row of patches, then a track beneath with the gates centred on the boundaries */
+.flow { display: grid; gap: 12px; overflow-x: clip; }
+.patches { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px; align-items: stretch; }
+.stage { display: grid; gap: 0; min-width: 0; }
+.patch {
+  border: 2px solid var(--line); border-radius: 8px; background: var(--surface);
+  padding: 12px 12px 14px; display: grid; gap: 10px; align-content: start; min-width: 0;
+}
+.patch.active { border-color: var(--active); }
+.patch.done { border-color: var(--done); }
+.patch.planned { border-style: dashed; }
+.patch .head { display: grid; gap: 2px; }
+.patch .head .num { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
+.patch .agent { display: flex; gap: 8px; align-items: flex-start; font-size: 0.85rem; }
+.patch .agent .who { font-weight: 600; }
+.checks { display: flex; flex-direction: column; gap: 5px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 7px; font-size: 0.78rem; line-height: 1.25;
+  padding: 4px 8px; border-radius: 5px; border: 1.5px solid; min-width: 0;
+}
+.chip .ph { font-family: var(--mono); font-size: 0.66rem; margin-left: auto; opacity: 0.85; white-space: nowrap; padding-left: 6px; }
+.chip.done { border-color: var(--done); background: var(--done-soft); }
+.chip.active { border-color: var(--active); background: var(--active-soft); }
+.chip.manual { border-color: var(--manual); background: var(--manual-soft); }
+.chip.planned { border-color: var(--planned); background: var(--planned-soft); border-style: dashed; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.chip.done .dot { background: var(--done); }
+.chip.active .dot { background: var(--active); }
+.chip.manual .dot { background: var(--manual); }
+.chip.planned .dot { background: var(--planned); }
+
+/* The track: a continuous thread with gate diamonds at the seams between stages */
+.track { position: relative; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 10px;
+  transform: translateX(calc((100% + 10px) / 14)); }
+.track::before { content: ""; position: absolute; left: calc(-50% / 7); right: calc((100% + 10px) / 7); top: 22px; border-top: 2px solid var(--line); }
+.track .cell { display: grid; justify-items: center; align-content: start; gap: 6px; min-width: 0; position: relative; }
+.track .cell:last-child { visibility: hidden; }
+.gate-mark {
+  position: relative; z-index: 1; width: 44px; height: 44px; transform: rotate(45deg);
+  border: 2px solid var(--line); background: var(--surface); border-radius: 4px; display: grid; place-items: center;
+}
+.gate-mark span { transform: rotate(-45deg); font-family: var(--display); font-weight: 700; font-size: 0.9rem; }
+.gate-mark.done { border-color: var(--done); background: var(--done-soft); }
+.gate-mark.active { border-color: var(--active); background: var(--active-soft); }
+.gate-mark.manual { border-color: var(--manual); background: var(--manual-soft); }
+.gate-mark.planned { border-style: dashed; }
+.gate-label { font-size: 0.78rem; text-align: center; display: grid; gap: 3px; justify-items: center; max-width: 100%; }
+.gate-label .status { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.gate-label .status.done { color: var(--done); }
+.gate-label .status.active { color: var(--active); }
+.gate-label .status.manual { color: var(--manual); }
+.gate-label .status.planned { color: var(--planned); }
+.auto-mark { position: relative; z-index: 1; width: 44px; height: 44px; display: grid; place-items: center; }
+.auto-mark i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); display: block; }
+.auto-label { font-size: 0.72rem; color: var(--muted); text-align: center; }
+
+/* Phone: stack the stages, and show the seam inline under each patch instead of on the track */
+.seam-inline { display: none; }
+@media (max-width: 1080px) {
+  .patches { grid-template-columns: 1fr; gap: 0; }
+  .track { display: none; }
+  .seam-inline { display: grid; grid-template-columns: 60px 1fr; align-items: center; gap: 10px; min-height: 72px; position: relative; padding: 8px 0; }
+  .seam-inline::before { content: ""; position: absolute; left: 29px; top: 0; bottom: 0; border-left: 2px solid var(--line); }
+  .seam-inline .gate-mark, .seam-inline .auto-mark { justify-self: center; }
+  .seam-inline .gate-mark { width: 40px; height: 40px; }
+  .seam-inline .gate-label { text-align: left; justify-items: start; }
+  .seam-inline .auto-label { text-align: left; }
+}
+
+/* Deployment path figure */
+figure { margin: 0; display: grid; gap: 10px; }
+.figwrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 8px; }
+svg { display: block; min-width: 760px; max-width: 100%; height: auto; }
+figcaption { font-size: 0.85rem; color: var(--muted); max-width: 80ch; }
+.sv-done { fill: var(--done-soft); stroke: var(--done); }
+.sv-active { fill: var(--active-soft); stroke: var(--active); }
+.sv-manual { fill: var(--manual-soft); stroke: var(--manual); }
+.sv-planned { fill: var(--planned-soft); stroke: var(--planned); stroke-dasharray: 5 4; }
+.sv-text { fill: var(--fg); font-family: var(--body); font-size: 12px; }
+.sv-small { fill: var(--muted); font-family: var(--mono); font-size: 10px; }
+.sv-line { stroke: var(--muted); stroke-width: 1.5; fill: none; }
+.sv-title { fill: var(--fg); font-family: var(--display); font-weight: 700; font-size: 13px; }
+
+/* Guardrails and roadmap */
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 10px; }
+.card { border: 1.5px solid var(--line); border-radius: 8px; background: var(--surface); padding: 12px 14px; display: grid; gap: 6px; min-width: 0; }
+.card .row { display: flex; gap: 10px; align-items: baseline; justify-content: space-between; }
+.card .how { font-size: 0.85rem; color: var(--muted); }
+.tag { font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.04em; text-transform: uppercase; padding: 2px 7px; border-radius: 4px; border: 1.5px solid; white-space: nowrap; }
+.tag.done { color: var(--done); border-color: var(--done); background: var(--done-soft); }
+.tag.active { color: var(--active); border-color: var(--active); background: var(--active-soft); }
+.tag.manual { color: var(--manual); border-color: var(--manual); background: var(--manual-soft); }
+.tag.planned { color: var(--planned); border-color: var(--planned); background: var(--planned-soft); border-style: dashed; }
+
+.roadmap { display: grid; gap: 6px; }
+.rm { display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: start; border: 1.5px solid var(--line); border-radius: 8px; background: var(--surface); padding: 10px 12px; }
+.rm.done { border-color: var(--done); }
+.rm.active { border-color: var(--active); }
+.rm.planned { border-style: dashed; }
+.rm .n { font-family: var(--display); font-weight: 700; font-size: 1.3rem; line-height: 1; padding-top: 2px; }
+.rm .body { display: grid; gap: 4px; min-width: 0; }
+.rm .title { display: flex; gap: 10px; flex-wrap: wrap; align-items: baseline; }
+.rm .exit { font-size: 0.85rem; color: var(--muted); }
+.rm .exit b { color: var(--fg); font-weight: 600; }
+
+section { display: grid; gap: 14px; }
+.sechead { display: grid; gap: 4px; }
+footer { font-size: 0.8rem; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+footer a { color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) { .chip, .patch, .phase { transition: border-color 160ms; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="top">
+    <div>
+      <div class="eyebrow">Agentic software delivery</div>
+      <h1>TaleQuilt Factory Map</h1>
+    </div>
+    <div class="asof" id="asof"></div>
+  </div>
+  <p class="muted">How a change travels from an idea to production, who decides at each gate, and which controls exist today. Agents do the work in each patch. Alex decides at the four diamonds. Colour shows status.</p>
+  <div class="legend" aria-label="Status legend">
+    <span><i class="swatch done"></i>Complete and enforced</span>
+    <span><i class="swatch active"></i>In progress now</span>
+    <span><i class="swatch manual"></i>Done by Alex by hand, automation later</span>
+    <span><i class="swatch planned"></i>Planned, with the phase that builds it</span>
+  </div>
+  <div class="phases" id="phases" aria-label="Phase progress"></div>
+</header>
+
+<section>
+  <div class="sechead">
+    <h2>The seven stages and four gates</h2>
+    <p class="muted">Each patch is a stage. The bold name is the agent that will run it. The chips are the automated checks the stage relies on. A diamond is a human gate where Alex approves.</p>
+  </div>
+  <div class="flow" id="flow"></div>
+</section>
+
+<section>
+  <div class="sechead">
+    <h2>Deployment path</h2>
+    <p class="muted">Where code goes after Alex merges, and how CI signs in to Azure without a stored secret.</p>
+  </div>
+  <figure>
+    <div class="figwrap">
+    <svg viewBox="0 0 1000 300" role="img" aria-label="A feature branch becomes a pull request, passes gate G3 into main, GitHub Actions signs in to Azure with OpenID Connect, deploys to staging where end-to-end, security and accessibility tests run, then after Alex approves at gate G4 deploys to production with smoke tests and automatic rollback. Only the pull request rule exists today; the rest is planned for Phase 3.">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <g color="var(--muted)">
+        <!-- Row 1: GitHub -->
+        <text x="20" y="28" class="sv-small">GITHUB</text>
+        <rect x="20" y="40" width="130" height="54" rx="6" class="sv-done" stroke-width="2"/>
+        <text x="85" y="63" text-anchor="middle" class="sv-text">Feature branch</text>
+        <text x="85" y="80" text-anchor="middle" class="sv-small">agent writes here</text>
+
+        <line x1="150" y1="67" x2="190" y2="67" class="sv-line" marker-end="url(#arrow)"/>
+
+        <rect x="192" y="40" width="130" height="54" rx="6" class="sv-done" stroke-width="2"/>
+        <text x="257" y="63" text-anchor="middle" class="sv-text">Pull request</text>
+        <text x="257" y="80" text-anchor="middle" class="sv-small">checks + review</text>
+
+        <line x1="322" y1="67" x2="362" y2="67" class="sv-line" marker-end="url(#arrow)"/>
+
+        <!-- G3 diamond -->
+        <g transform="translate(392 67) rotate(45)">
+          <rect x="-19" y="-19" width="38" height="38" rx="4" class="sv-active" stroke-width="2"/>
+        </g>
+        <text x="392" y="71" text-anchor="middle" class="sv-title">G3</text>
+        <text x="392" y="112" text-anchor="middle" class="sv-small">Alex merges</text>
+        <text x="392" y="125" text-anchor="middle" class="sv-small">ruleset: this PR</text>
+
+        <line x1="422" y1="67" x2="462" y2="67" class="sv-line" marker-end="url(#arrow)"/>
+
+        <rect x="464" y="40" width="110" height="54" rx="6" class="sv-active" stroke-width="2"/>
+        <text x="519" y="63" text-anchor="middle" class="sv-text">main</text>
+        <text x="519" y="80" text-anchor="middle" class="sv-small">protected trunk</text>
+
+        <line x1="574" y1="67" x2="614" y2="67" class="sv-line" marker-end="url(#arrow)"/>
+        <text x="594" y="58" text-anchor="middle" class="sv-small">on merge</text>
+
+        <rect x="616" y="40" width="150" height="54" rx="6" class="sv-planned" stroke-width="2"/>
+        <text x="691" y="63" text-anchor="middle" class="sv-text">GitHub Actions deploy</text>
+        <text x="691" y="80" text-anchor="middle" class="sv-small">Bicep, phase 3</text>
+
+        <!-- OIDC hop down to Azure -->
+        <line x1="691" y1="94" x2="691" y2="150" class="sv-line" marker-end="url(#arrow)"/>
+        <text x="700" y="118" class="sv-small">OpenID Connect</text>
+        <text x="700" y="131" class="sv-small">no stored secret</text>
+
+        <!-- Row 2: Azure -->
+        <text x="20" y="170" class="sv-small">AZURE, UK SOUTH</text>
+        <rect x="20" y="182" width="330" height="96" rx="6" class="sv-planned" stroke-width="2"/>
+        <text x="36" y="204" class="sv-title">Production</text>
+        <text x="36" y="222" class="sv-small">talequilt.alexhopkins.app</text>
+        <text x="36" y="242" class="sv-text">Container Apps · Static Web Apps · SQL serverless</text>
+        <text x="36" y="262" class="sv-text">Smoke tests, automatic rollback</text>
+
+        <rect x="560" y="182" width="420" height="96" rx="6" class="sv-planned" stroke-width="2"/>
+        <text x="576" y="204" class="sv-title">Staging</text>
+        <text x="576" y="222" class="sv-small">staging.talequilt.alexhopkins.app</text>
+        <text x="576" y="242" class="sv-text">Same Bicep templates, scaled to zero when idle</text>
+        <text x="576" y="262" class="sv-text">Playwright · OWASP ZAP · accessibility · AI evals</text>
+
+        <!-- G4 diamond between staging and production -->
+        <line x1="560" y1="230" x2="490" y2="230" class="sv-line" marker-end="url(#arrow)"/>
+        <g transform="translate(455 230) rotate(45)">
+          <rect x="-19" y="-19" width="38" height="38" rx="4" class="sv-planned" stroke-width="2"/>
+        </g>
+        <text x="455" y="234" text-anchor="middle" class="sv-title">G4</text>
+        <line x1="420" y1="230" x2="350" y2="230" class="sv-line" marker-end="url(#arrow)"/>
+        <text x="455" y="275" text-anchor="middle" class="sv-small">Alex approves the</text>
+        <text x="455" y="288" text-anchor="middle" class="sv-small">production environment</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption>Green is live today, amber is in this pull request, dashed is Phase 3. Deployment never holds an Azure password: the workflow proves its identity to Azure with a short-lived OpenID Connect token, and the app reads its own secrets from Key Vault through a managed identity.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <div class="sechead">
+    <h2>Guardrails</h2>
+    <p class="muted">Rules enforced by configuration, not by asking an agent nicely.</p>
+  </div>
+  <div class="grid2" id="guardrails"></div>
+</section>
+
+<section>
+  <div class="sechead">
+    <h2>Roadmap</h2>
+    <p class="muted">The pipeline comes first. Product features start in Phase 5 and every one flows through all seven stages.</p>
+  </div>
+  <div class="roadmap" id="roadmap"></div>
+</section>
+
+<footer>
+  Source: <code>docs/pipeline-map.html</code> in the TaleQuilt repository. Status is a small table at the top of the page script; update it in the same pull request as the change it describes. Detail lives in <code>docs/operating-model.md</code> and <code>docs/adr/</code>.
+</footer>
+
+</div>
+
+<script>
+// Status vocabulary: done | active | manual | planned. Planned items carry the phase that builds them.
+const ASOF = "9 October 2026, Phase 0 pull request open";
+
+const PHASES = [
+  { n: 0, title: "Foundations", status: "active", exit: "A one-line change reaches main only through a reviewed pull request" },
+  { n: 1, title: "Skeleton and CI", status: "planned", exit: "A pull request with a failing test or lint error cannot merge" },
+  { n: 2, title: "Security gates", status: "planned", exit: "A planted fake secret and a known-vulnerable dependency are both blocked" },
+  { n: 3, title: "Deploy path", status: "planned", exit: "A change reaches production only after Alex approves, and a failed smoke test rolls it back" },
+  { n: 4, title: "Agent workflows", status: "planned", exit: "An issue becomes a merged, deployed change with Alex acting only at G1 to G4" },
+  { n: 5, title: "Manuscript", status: "planned", exit: "A sample book is imported and its structure approved" },
+  { n: 6, title: "Bible and illustration", status: "planned", exit: "Ten scenes illustrated with consistent characters, within budget" },
+  { n: 7, title: "Layout and export", status: "planned", exit: "An exported PDF passes Lulu's checks" },
+  { n: 8, title: "Operate and measure", status: "planned", exit: "Alex can present the metrics and what he would change" },
+];
+
+// Each stage: the agent role, its checks, and what follows it (a gate or a plain seam).
+const STAGES = [
+  { num: "Stage 1", name: "Spec", status: "active",
+    agent: { who: "Spec agent", what: "turns an issue into a user story with testable acceptance criteria", status: "planned", phase: 4 },
+    checks: [
+      { t: "Issue template complete", status: "active" },
+      { t: "Criteria are testable", status: "manual", phase: 4 },
+    ],
+    next: { gate: "G1", label: "Alex approves the spec", status: "manual", detail: "label gate in phase 4" } },
+  { num: "Stage 2", name: "Plan", status: "active",
+    agent: { who: "Planner", what: "proposes design, task list, test plan and a draft ADR", status: "planned", phase: 4 },
+    checks: [
+      { t: "ADR present when architecture changes", status: "manual", phase: 4 },
+      { t: "Small-change rule (ADR 0010)", status: "active" },
+    ],
+    next: { gate: "G2", label: "Alex approves the plan", status: "manual", detail: "skipped for size/small" } },
+  { num: "Stage 3", name: "Build", status: "active",
+    agent: { who: "Builder", what: "writes code and tests on a branch and opens a pull request", status: "planned", phase: 4 },
+    checks: [
+      { t: "Pull request template", status: "active" },
+      { t: "Format and lint on commit", status: "planned", phase: 1 },
+      { t: "Secret check on commit", status: "planned", phase: 2 },
+    ],
+    next: { auto: "no gate: a pull request opens" } },
+  { num: "Stage 4", name: "Verify", status: "active",
+    agent: { who: "Reviewer + Security reviewer", what: "critique the pull request against the spec, in a fresh context", status: "planned", phase: 4 },
+    checks: [
+      { t: "Build", status: "planned", phase: 1 },
+      { t: "Unit and integration tests", status: "planned", phase: 1 },
+      { t: "Coverage 80%", status: "planned", phase: 1 },
+      { t: "Lint", status: "planned", phase: 1 },
+      { t: "CodeQL static analysis", status: "planned", phase: 2 },
+      { t: "Dependency review", status: "planned", phase: 2 },
+      { t: "Secret scanning + push protection", status: "planned", phase: 2 },
+      { t: "Infrastructure scan", status: "planned", phase: 2 },
+      { t: "Licence check + SBOM", status: "planned", phase: 2 },
+    ],
+    next: { gate: "G3", label: "Alex reviews and merges", status: "active", detail: "pull request required; 1 approval in phase 4" } },
+  { num: "Stage 5", name: "Staging", status: "planned", phase: 3,
+    agent: { who: "Release agent", what: "writes release notes after the deploy", status: "planned", phase: 4 },
+    checks: [
+      { t: "Deploy on merge (Bicep + OIDC)", status: "planned", phase: 3 },
+      { t: "Playwright end-to-end", status: "planned", phase: 3 },
+      { t: "OWASP ZAP baseline", status: "planned", phase: 3 },
+      { t: "Accessibility checks", status: "planned", phase: 3 },
+      { t: "AI evals", status: "planned", phase: 6 },
+    ],
+    next: { auto: "no gate: staging green" } },
+  { num: "Stage 6", name: "Production", status: "planned", phase: 3,
+    agent: { who: "Release agent", what: "prepares the release summary and rollback steps", status: "planned", phase: 4 },
+    checks: [
+      { t: "Smoke tests after deploy", status: "planned", phase: 3 },
+      { t: "Automatic rollback", status: "planned", phase: 3 },
+    ],
+    next: { gate: "G4", label: "Alex approves the deployment", status: "planned", detail: "production environment, phase 3" } },
+  { num: "Stage 7", name: "Operate", status: "planned", phase: 8,
+    agent: { who: "Triage agent", what: "turns alerts and failed runs into issues with a diagnosis", status: "planned", phase: 4 },
+    checks: [
+      { t: "Audit log", status: "planned", phase: 5 },
+      { t: "Cost alerts", status: "planned", phase: 3 },
+      { t: "Monitoring and dashboards", status: "planned", phase: 8 },
+      { t: "Pipeline metrics", status: "planned", phase: 4 },
+    ],
+    next: null },
+];
+
+const GUARDRAILS = [
+  { t: "Agents never approve or merge", how: "No approval permission; merging is Alex's act; production environment names only Alex", status: "active" },
+  { t: "Agents cannot change the rules", how: "CODEOWNERS names Alex for .github/, .claude/, CLAUDE.md, ADRs, infra/", status: "active", note: "enforced in phase 4" },
+  { t: "No direct pushes to main", how: "Ruleset: pull request required, force push and delete blocked, no bypass", status: "active" },
+  { t: "Reviewer independence", how: "Reviewer runs in a fresh context on the pull request event, never on its own branch", status: "planned", phase: 4 },
+  { t: "Least privilege", how: "Each workflow declares minimal permissions and an explicit allowed-tools list", status: "planned", phase: 1 },
+  { t: "Trigger control", how: "Only actors with write access start an agent run; other text is data", status: "planned", phase: 4 },
+  { t: "Bounded runs", how: "Turn limit, job timeout and concurrency group on every agent workflow", status: "planned", phase: 4 },
+  { t: "Traceability", how: "Pull request template links issue, spec, plan and run log", status: "active" },
+  { t: "Tests are the contract", how: "Coverage may only rise; reviewer flags deleted or loosened tests", status: "planned", phase: 1 },
+  { t: "No stored cloud credentials", how: "OpenID Connect to Azure; Key Vault via managed identity", status: "planned", phase: 3 },
+  { t: "Book text is untrusted", how: "Separated from instructions; model output never triggers an action unchecked", status: "planned", phase: 5 },
+  { t: "Spend is capped", how: "£20 a month on images, £5 per book; Claude key with a spend limit", status: "planned", phase: 4 },
+];
+
+const WORDS = { done: "Complete", active: "In progress", manual: "By hand for now", planned: "Planned" };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const phaseTag = (status, phase) => status === "planned" && phase != null ? `<span class="ph">P${phase}</span>` : (status === "manual" && phase != null ? `<span class="ph">auto P${phase}</span>` : "");
+
+document.getElementById("asof").textContent = "As of " + ASOF;
+
+document.getElementById("phases").innerHTML = PHASES.map(p => `
+  <div class="phase ${p.status}" title="${esc(p.exit)}">
+    ${p.status === "active" ? '<span class="here">You are here</span>' : ""}
+    <div class="n">${p.n}</div>
+    <div class="t">${esc(p.title)}</div>
+  </div>`).join("");
+
+const seamMarkup = (n) => {
+  if (n && n.gate) return `
+      <div class="gate-mark ${n.status}" title="${WORDS[n.status]}"><span>${esc(n.gate)}</span></div>
+      <div class="gate-label"><span>${esc(n.label)}</span><span class="status ${n.status}">${WORDS[n.status]}</span><span class="muted" style="font-size:.72rem">${esc(n.detail || "")}</span></div>`;
+  if (n && n.auto) return `<div class="auto-mark"><i></i></div><div class="auto-label">${esc(n.auto)}</div>`;
+  return "";
+};
+
+document.getElementById("flow").innerHTML = `
+  <div class="patches">${STAGES.map(s => `
+    <div class="stage">
+      <div class="patch ${s.status}">
+        <div class="head">
+          <div class="num">${esc(s.num)}${s.status === "planned" && s.phase ? ` · phase ${s.phase}` : ""}</div>
+          <h3>${esc(s.name)}</h3>
+        </div>
+        <div class="agent"><span class="chip ${s.agent.status}" title="${WORDS[s.agent.status]}"><i class="dot"></i><span class="who">${esc(s.agent.who)}</span>${phaseTag(s.agent.status, s.agent.phase)}</span></div>
+        <div class="muted" style="font-size:.82rem">${esc(s.agent.what)}</div>
+        <div class="checks">${s.checks.map(c => `<span class="chip ${c.status}" title="${WORDS[c.status]}"><i class="dot"></i><span>${esc(c.t)}</span>${phaseTag(c.status, c.phase)}</span>`).join("")}</div>
+      </div>
+      ${s.next ? `<div class="seam-inline">${seamMarkup(s.next)}</div>` : ""}
+    </div>`).join("")}
+  </div>
+  <div class="track" aria-hidden="true">${STAGES.map(s => `<div class="cell">${seamMarkup(s.next)}</div>`).join("")}</div>`;
+
+document.getElementById("guardrails").innerHTML = GUARDRAILS.map(g => `
+  <div class="card">
+    <div class="row"><h3>${esc(g.t)}</h3><span class="tag ${g.status}">${WORDS[g.status]}${g.phase ? " P" + g.phase : ""}</span></div>
+    <div class="how">${esc(g.how)}${g.note ? ` <span class="mono">(${esc(g.note)})</span>` : ""}</div>
+  </div>`).join("");
+
+document.getElementById("roadmap").innerHTML = PHASES.map(p => `
+  <div class="rm ${p.status}">
+    <div class="n">${p.n}</div>
+    <div class="body">
+      <div class="title"><h3>${esc(p.title)}</h3><span class="tag ${p.status}">${WORDS[p.status]}</span></div>
+      <div class="exit"><b>Exit test:</b> ${esc(p.exit)}</div>
+    </div>
+  </div>`).join("");
+</script>
+</body>
+</html>

@@ -32,6 +32,7 @@ TaleQuilt: a React + ASP.NET Core + Azure app that turns a manuscript into an il
 ```
 docs/handover-brief.md     The founding brief
 docs/operating-model.md    Stages, gates, roles, guardrails
+docs/pipeline-map.html     The same, as a status-coloured map; update its status table with each change
 docs/adr/                  Architecture decision records
 docs/phases/               One brief per phase
 docs/learning-log.md       Debrief per phase
