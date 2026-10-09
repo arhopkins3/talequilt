@@ -51,6 +51,17 @@ Three pull requests, each small enough to review in one sitting.
 
 After each merges, Alex adds the new required checks to the ruleset. Their names are part of the gate and are listed in the pull request that creates them.
 
+### One-time settings only Alex can change (Settings, Code security)
+
+No workflow has permission to change these, so they are human acts, like enabling Pages was in Phase 0. The first run of the dependency review check on #18 failed with "Dependency graph is not enabled", which is how this list was learnt.
+
+| Setting | Why | Needed by |
+| --- | --- | --- |
+| Dependency graph: enable | Dependency review and Dependabot read the graph | Pull request 1 |
+| Dependabot alerts and security updates: enable | Alerts on known vulnerabilities in what is already installed; automatic fix pull requests | Pull request 1 |
+| Secret scanning and push protection: enable | GitHub rejects a push containing a known credential format | Pull request 2 and drill step 1 |
+| Code scanning: leave default setup off | The CodeQL workflow in the repository is the gate (ADR 0019); default setup would duplicate it | Pull request 2 |
+
 ## Break it: the drill
 
 1. **Planted secret.** On a branch, add a file containing a fake key in a real provider's format (GitHub's documentation lists test patterns that trigger push protection without being live credentials). Expected: the push itself is rejected by push protection; bypassing that for the drill and pushing anyway, the CI secret scan goes red.
