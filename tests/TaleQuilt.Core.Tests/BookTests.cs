@@ -28,6 +28,26 @@ public sealed class BookTests
         first.Id.ShouldNotBe(second.Id);
     }
 
+    [Fact]
+    public void Rename_replaces_the_title()
+    {
+        var book = Book.Create("Working title", _clock);
+
+        book.Rename("The Lighthouse Keeper's Cat");
+
+        book.Title.ShouldBe("The Lighthouse Keeper's Cat");
+    }
+
+    [Fact]
+    public void Rename_rejects_a_title_that_is_too_long()
+    {
+        var book = Book.Create("Working title", _clock);
+
+        var ex = Should.Throw<ArgumentException>(() => book.Rename(new string('x', Book.TitleMaxLength + 1)));
+
+        ex.ParamName.ShouldBe("title");
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

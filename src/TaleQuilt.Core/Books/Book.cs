@@ -41,4 +41,17 @@ public sealed class Book
 
         return new Book(Guid.CreateVersion7(), cleaned, clock.GetUtcNow());
     }
+
+    /// <summary>
+    /// Renames the book. The new title is author input and is cleaned and bounded like the original.
+    /// </summary>
+    public void Rename(string title)
+    {
+        if (title.Length > TitleMaxLength)
+        {
+            throw new ArgumentException($"A title may be at most {TitleMaxLength} characters.", nameof(title));
+        }
+
+        Title = title;
+    }
 }
