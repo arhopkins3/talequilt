@@ -2,12 +2,12 @@
 // Status vocabulary: done | active | manual | planned. Planned items carry the phase that builds them.
 // Update this file in the same pull request as the change it describes.
 window.FACTORY = {
-  asOf: "9 October 2026, Phase 1 closed after the drill; Phase 2 security gates in brief",
+  asOf: "13 October 2026, Phase 2 closed after the drill; Phase 3 deploy path in brief",
   phases: [
   { n: 0, title: "Foundations", status: "done", exit: "A one-line change reaches main only through a reviewed pull request" },
   { n: 1, title: "Skeleton and CI", status: "done", exit: "A pull request with a failing test or lint error cannot merge" },
-  { n: 2, title: "Security gates", status: "active", exit: "A planted fake secret and a known-vulnerable dependency are both blocked" },
-  { n: 3, title: "Deploy path", status: "planned", exit: "A change reaches production only after Alex approves, and a failed smoke test rolls it back" },
+  { n: 2, title: "Security gates", status: "done", exit: "A planted fake secret and a known-vulnerable dependency are both blocked" },
+  { n: 3, title: "Deploy path", status: "active", exit: "A change reaches production only after Alex approves, and a failed smoke test rolls it back" },
   { n: 4, title: "Agent workflows", status: "planned", exit: "An issue becomes a merged, deployed change with Alex acting only at G1 to G4" },
   { n: 5, title: "Manuscript", status: "planned", exit: "A sample book is imported and its structure approved" },
   { n: 6, title: "Bible and illustration", status: "planned", exit: "Ten scenes illustrated with consistent characters, within budget" },
@@ -51,7 +51,7 @@ window.FACTORY = {
       { t: "Dependency review: vulnerabilities and licence allow list", status: "active" },
       { t: "Actions pinned by SHA; Dependabot bumps", status: "done" },
       { t: "Secret scan over full history (gitleaks)", status: "active" },
-      { t: "GitHub secret scanning + push protection", status: "manual", phase: 2 },
+      { t: "GitHub secret scanning + push protection", status: "done" },
       { t: "Infrastructure scan (Checkov on Bicep; reports until Phase 3)", status: "active" },
       { t: "CycloneDX SBOM artifact (.NET and npm)", status: "active" },
     ],
