@@ -32,7 +32,7 @@ A platform team owns a landing zone (networking, policy, monitoring, identity) a
 
 ## Decide
 
-To be settled in the Phase 3 survey. Each question carries a recommendation.
+Settled in the Phase 3 survey on 13 October 2026 and recorded in ADR 0021. Seven of the eight were taken as recommended. On question 2 Alex first chose production only, to hold cost down until the app was established, then reversed on question 7 when asked where the end-to-end, security and accessibility tests would run before a change took traffic. The questions and options are kept below as the record of what was considered.
 
 1. **Compute shape.** Confirm ADR 0007's first option: Container Apps (consumption) for the API and the worker, Static Web Apps for the React build, Azure SQL serverless with auto-pause, Storage for blobs and queues, Key Vault, Log Analytics. Recommendation: confirm, then price it; the alternatives are kept in the ADR.
 2. **Environments.** (a) Staging and production, both from the same Bicep with a parameter file each, in two resource groups; (b) production only, with the end-to-end tests run against a temporary deployment. Recommendation: (a). The exit test needs somewhere for a bad deploy to fail before Alex sees it, and two environments from one template is the pattern worth learning.
