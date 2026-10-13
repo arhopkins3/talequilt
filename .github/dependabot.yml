@@ -13,6 +13,15 @@ updates:
       npm:
         patterns: ["*"]
     open-pull-requests-limit: 3
+    # Major versions held back on purpose (ADR 0019). A grouped pull request is all or nothing, and the first
+    # one (#22) failed at npm ci because typescript 7 is outside typescript-eslint's peer range (<6.1.0).
+    # TypeScript majors are a planned upgrade Alex schedules, not a weekly surprise. @types/node tracks the
+    # Node major the app runs on (engines in package.json and node-version in ci.yml), so it moves with them.
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: nuget
     directory: /
     schedule:
