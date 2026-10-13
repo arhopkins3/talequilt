@@ -1,4 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- Container image built by the .NET SDK (dotnet publish /t:PublishContainer), no Dockerfile (ADR 0021).
+       Base image: Microsoft's chiseled Ubuntu, no shell or package manager, runs as the non-root app user.
+       Registry, tags and the push are set by .github/workflows/images.yml. -->
+  <PropertyGroup>
+    <ContainerRepository>arhopkins3/talequilt-api</ContainerRepository>
+    <ContainerFamily>noble-chiseled</ContainerFamily>
+    <!-- Declared so the lock file carries the linux-x64 targets the image publish needs and locked restore stays consistent. -->
+    <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
+    <ContainerPort>8080</ContainerPort>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />

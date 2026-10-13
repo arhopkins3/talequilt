@@ -60,6 +60,7 @@ window.FACTORY = {
   { num: "Stage 5", name: "Staging", status: "planned", phase: 3,
     agent: { who: "Release agent", what: "writes release notes after the deploy", status: "planned", phase: 4 },
     checks: [
+      { t: "Container images built on every pull request, published from main to GHCR", status: "active" },
       { t: "Deploy on merge (Bicep + OIDC)", status: "planned", phase: 3 },
       { t: "Playwright end-to-end", status: "planned", phase: 3 },
       { t: "OWASP ZAP baseline", status: "planned", phase: 3 },
