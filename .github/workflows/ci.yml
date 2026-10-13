@@ -1,6 +1,6 @@
 # Continuous integration: the checks the main ruleset requires before a pull request can merge (Phase 1).
 # Job names are the status check names, so renaming a job silently stops it being required. Keep them stable.
-# Actions are pinned to major tags for now; Phase 2 pins them to commit SHAs.
+# Every action is pinned to a commit SHA, with the tag it was taken from as a comment (ADR 0019); Dependabot proposes bumps.
 name: CI
 
 on:
