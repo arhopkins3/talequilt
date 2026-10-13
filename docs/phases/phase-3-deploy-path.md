@@ -47,10 +47,14 @@ To be settled in the Phase 3 survey. Each question carries a recommendation.
 
 Four pull requests, each reviewable in one sitting.
 
-1. **Infrastructure.** Bicep for one environment (parameterised), a `what-if` step in CI that posts the plan on the pull request, Checkov now scanning real files, and a documented one-time bootstrap script (resource groups, the two managed identities and their federated credentials) that Alex runs once from his own session, recorded in the ADR, because the pipeline cannot create the identity it signs in with.
+1. **Infrastructure.** Bicep for one environment (parameterised), an `Infrastructure build` check that compiles and lints it with a pinned Bicep CLI, Checkov now scanning real files, and a documented one-time bootstrap script (resource groups, the two managed identities and their federated credentials) that Alex runs once from his own session, recorded in the ADR, because the pipeline cannot create the identity it signs in with. The `what-if` step moves to pull request 2, since it needs those identities to sign in with.
 2. **Staging deploy.** A `Deploy` workflow on push to `main`: sign in with OIDC, deploy the Bicep, build and push the two container images, run the migration bundle, deploy the revision, deploy the web app. The `staging` environment exists with no protection rule.
 3. **Verify and promote.** Playwright, ZAP and axe against staging, then the `production` job behind the `production` environment with Alex as required reviewer (G4), the smoke test, and the automatic traffic shift back on failure. The Console shows the two environments and the gate.
 4. **Accept and price.** ADR 0007 accepted with calculator prices and the first month's actual bill when it exists, the budget alerts, the operating model's stage 5 and 6 rows marked enforced, and the learning log entry after the drill.
+
+### Infrastructure scan findings and what was done with them
+
+Checkov's first run on real Bicep (pull request 1) reported fourteen findings. Eight were fixed in the templates: database-level auditing, server and database security alert policies with email, geo-redundant storage. Six are suppressed in the Bicep with the reason beside each, all for one cause: private endpoints and default-deny network rules need a virtual network, and the consumption Container Apps plan has none. Key Vault (CKV_AZURE_109, 189), Storage (CKV_AZURE_35, 59) and SQL (CKV_AZURE_113) therefore stay reachable over their public endpoints with identity-only access, TLS 1.2 and auditing on, to be reviewed in Phase 5 when there is user data to protect. SQL zone redundancy (CKV_AZURE_229) is declined on cost for a single author. Two further suppressions (CKV_AZURE_26, 27 on the database) are false positives, since the alert policies they ask for exist as separately declared children. Two findings remain visible and are known false positives that Checkov will not suppress: CKV_AZURE_23 and CKV_AZURE_25 on the `existing` reference to the `master` database, which the template reads to route audit events and does not create.
 
 ### One-time settings (Alex applies)
 

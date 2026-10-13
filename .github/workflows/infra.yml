@@ -1,0 +1,65 @@
+# Infrastructure build (ADR 0021): compiles and lints the Bicep on every pull request that touches infra/, with
+# the Bicep CLI pinned by release version and SHA-256 (bumped by hand, as gitleaks is; Dependabot does not see
+# it). Lint warnings fail the job. Checkov runs separately in the Security workflow. `what-if` against the real
+# environments arrives with the Deploy workflow once the bootstrap identities exist for it to sign in with.
+# Every action is pinned to a commit SHA, with the tag it was taken from as a comment.
+name: Infrastructure
+
+on:
+  pull_request:
+    paths:
+      - "infra/**"
+      - ".github/workflows/infra.yml"
+  push:
+    branches: [main]
+    paths:
+      - "infra/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Infrastructure build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BICEP_VERSION: "0.48.1"
+      BICEP_SHA256: "b09ec25a9d376c1f8e33ede6ed22b587f915ad68488d5db77a6f9541748c7f6e"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install Bicep (release pinned by version and checksum)
+        run: |
+          curl -sSL -o bicep "https://github.com/Azure/bicep/releases/download/v${{ env.BICEP_VERSION }}/bicep-linux-x64"
+          echo "${{ env.BICEP_SHA256 }}  bicep" | sha256sum -c -
+          chmod +x bicep
+          ./bicep --version
+      - name: Build
+        run: ./bicep build infra/main.bicep --stdout > /dev/null
+      - name: Lint (any warning fails)
+        run: |
+          out="$(./bicep lint infra/main.bicep 2>&1 || true)"
+          if [ -n "$out" ]; then echo "$out"; echo "::error::Bicep lint reported diagnostics"; exit 1; fi
+          echo "no lint diagnostics"
+      - name: Build both parameter files
+        # The parameter files read GitHub environment variables at deploy time; placeholders prove they compile.
+        env:
+          APP_IDENTITY_ID: /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/placeholder
+          APP_IDENTITY_CLIENT_ID: 00000000-0000-0000-0000-000000000000
+          APP_IDENTITY_PRINCIPAL_ID: 00000000-0000-0000-0000-000000000000
+          SQL_ADMIN_OBJECT_ID: 00000000-0000-0000-0000-000000000000
+          SQL_ADMIN_LOGIN: placeholder@example.com
+          ALLOWED_IP_RANGES: 203.0.113.1/32
+          API_IMAGE: ghcr.io/arhopkins3/talequilt-api:placeholder
+          WORKER_IMAGE: ghcr.io/arhopkins3/talequilt-worker:placeholder
+          BUDGET_ALERT_EMAIL: placeholder@example.com
+        run: |
+          for p in staging production; do
+            ./bicep build-params "infra/parameters/$p.bicepparam" --stdout > /dev/null
+            echo "$p parameters compile"
+          done
