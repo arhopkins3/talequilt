@@ -15,6 +15,8 @@ param apiMinReplicas int
 param sqlConnectionString string
 param storageAccountName string
 param keyVaultUri string
+@description('Origin of the web app, allowed by the API\'s CORS policy (ADR 0021).')
+param webOrigin string
 
 resource workspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: last(split(logAnalyticsWorkspaceId, '/'))
@@ -41,6 +43,7 @@ var commonEnv = [
   { name: 'ConnectionStrings__TaleQuilt', secretRef: 'sql-connection-string' }
   { name: 'Storage__AccountName', value: storageAccountName }
   { name: 'KeyVault__Uri', value: keyVaultUri }
+  { name: 'Cors__AllowedOrigins__0', value: webOrigin }
   { name: 'ASPNETCORE_FORWARDEDHEADERS_ENABLED', value: 'true' }
 ]
 

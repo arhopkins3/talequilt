@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { createBook, getHealth, listBooks } from "./api";
+import { describe, expect, it, vi } from "vitest";
+import { apiUrl, createBook, getHealth, listBooks } from "./api";
 
 function fakeFetch(status: number, body: unknown): typeof fetch {
   return (() =>
@@ -10,6 +10,29 @@ function fakeFetch(status: number, body: unknown): typeof fetch {
       }),
     )) as typeof fetch;
 }
+
+describe("apiUrl", () => {
+  it("keeps the path relative when no base is set", () => {
+    expect(apiUrl("/api/books", undefined)).toBe("/api/books");
+    expect(apiUrl("/api/books", "")).toBe("/api/books");
+  });
+  it("prefixes the base and tolerates a trailing slash", () => {
+    expect(apiUrl("/api/books", "https://api.example.com")).toBe(
+      "https://api.example.com/api/books",
+    );
+    expect(apiUrl("/api/books", "https://api.example.com/")).toBe(
+      "https://api.example.com/api/books",
+    );
+  });
+  it("reads the base from the build environment by default", () => {
+    vi.stubEnv("VITE_API_BASE_URL", "https://api.example.com");
+    try {
+      expect(apiUrl("/api/health")).toBe("https://api.example.com/api/health");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+});
 
 describe("getHealth", () => {
   it("is healthy on a 200", async () => {
