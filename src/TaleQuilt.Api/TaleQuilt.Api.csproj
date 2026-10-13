@@ -5,6 +5,8 @@
   <PropertyGroup>
     <ContainerRepository>arhopkins3/talequilt-api</ContainerRepository>
     <ContainerFamily>noble-chiseled</ContainerFamily>
+    <!-- Declared so the lock file carries the linux-x64 targets the image publish needs and locked restore stays consistent. -->
+    <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
     <ContainerPort>8080</ContainerPort>
   </PropertyGroup>
   <ItemGroup>
