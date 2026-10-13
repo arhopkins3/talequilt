@@ -81,8 +81,11 @@ jobs:
           echo "${{ env.GITLEAKS_SHA256 }}  gitleaks.tgz" | sha256sum -c -
           tar xzf gitleaks.tgz gitleaks
           ./gitleaks version
+      # The report is written outside the checkout. A report that holds any finding embeds gitleaks' full rule
+      # list, and one rule's pattern matches another rule's, so a report inside the tree makes the working-tree
+      # scan below report a second, false, leak (Phase 2 debrief, item 12).
       - name: Scan every commit in the history
-        run: ./gitleaks git . --redact --no-banner --exit-code 1 --report-format sarif --report-path gitleaks-history.sarif
+        run: ./gitleaks git . --redact --no-banner --exit-code 1 --report-format sarif --report-path "$RUNNER_TEMP/gitleaks-history.sarif"
       - name: Scan the working tree (catches files that were never committed as such, for example generated ones)
         if: always()
         run: ./gitleaks dir . --redact --no-banner --exit-code 1
@@ -90,7 +93,7 @@ jobs:
         if: always()
         uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
-          sarif_file: gitleaks-history.sarif
+          sarif_file: ${{ runner.temp }}/gitleaks-history.sarif
           category: gitleaks
 
   sbom:
