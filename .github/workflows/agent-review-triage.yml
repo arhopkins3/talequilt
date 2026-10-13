@@ -65,7 +65,7 @@ jobs:
 
       - name: Open the Review triage check (in progress)
         id: open
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           HEAD_SHA: ${{ steps.pr.outputs.sha }}
           READY: ${{ steps.prereq.outputs.ready }}
@@ -117,7 +117,7 @@ jobs:
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "Unresolved review threads: $count"
 
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: steps.prereq.outputs.ready == 'true'
         with:
           ref: ${{ steps.pr.outputs.sha }}
@@ -144,7 +144,7 @@ jobs:
         id: claude
         if: steps.prereq.outputs.ready == 'true'
         continue-on-error: true
-        uses: anthropics/claude-code-action@2dca132ff0e0c4094ce6048b422c6915a071210b # v1
+        uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1
         env:
           GH_TOKEN: ${{ github.token }}
         with:
@@ -164,7 +164,7 @@ jobs:
 
       - name: Keep the run record
         if: always() && steps.prereq.outputs.ready == 'true'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: review-triage-pr-${{ env.PR_NUMBER }}-run-${{ github.run_id }}
           path: |
@@ -175,7 +175,7 @@ jobs:
 
       - name: Report the Review triage check
         if: always()
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           READY: ${{ steps.prereq.outputs.ready }}
           HEAD_SHA: ${{ steps.pr.outputs.sha }}
