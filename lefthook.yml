@@ -14,3 +14,5 @@ pre-commit:
     dotnet-format:
       glob: "*.cs"
       run: dotnet format TaleQuilt.slnx --verify-no-changes --include {staged_files}
+    gitleaks:
+      run: if command -v gitleaks >/dev/null; then gitleaks git --pre-commit --staged --redact --no-banner; else echo "gitleaks is not installed locally; the Secret scan check in CI covers it (brew install gitleaks)"; fi
