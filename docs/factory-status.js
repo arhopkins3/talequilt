@@ -41,6 +41,7 @@ window.FACTORY = {
     agent: { who: "Review triage (Copilot findings)", what: "verifies each finding the reviewer bot raised and replies with a verdict; threads already in discussion are recorded, not re-triaged, except findings it marked fix-now, which it re-checks against the diff on every later push. Reviewer and security reviewer agents follow in phase 4", status: "active" },
     checks: [
       { t: "Review triage status check", status: "active" },
+      { t: "Agent rules taken from main at run time (ADR 0020)", status: "done" },
       { t: "Reviewer + security reviewer agents", status: "planned", phase: 4 },
       { t: "Build", status: "active" },
       { t: "Unit and integration tests", status: "active" },
