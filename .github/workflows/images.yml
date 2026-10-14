@@ -1,20 +1,12 @@
 # Container images (ADR 0021): the API and the worker are published as images by the .NET SDK's container
-# support, with no Dockerfile. Every pull request that touches the .NET code builds both images to prove they
-# build; every push to main publishes them to GitHub Container Registry, tagged with the commit and "main".
-# The Deploy workflow deploys an image by its commit tag, so what runs is exactly what main built.
+# support, with no Dockerfile. Every pull request that touches the .NET code builds both images to archives to
+# prove they build; nothing is pushed from here. Publishing to GitHub Container Registry happens in the Deploy
+# workflow, after CI has succeeded on main, so an image tagged "main" is always one CI has passed.
 # Every action is pinned to a commit SHA, with the tag it was taken from as a comment.
 name: Container images
 
 on:
   pull_request:
-    paths:
-      - "src/TaleQuilt.*/**"
-      - "Directory.Build.props"
-      - "Directory.Packages.props"
-      - "global.json"
-      - ".github/workflows/images.yml"
-  push:
-    branches: [main]
     paths:
       - "src/TaleQuilt.*/**"
       - "Directory.Build.props"
@@ -37,9 +29,6 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: read
-      packages: write # only used on main; pull requests build to an archive and push nothing
-    env:
-      REGISTRY: ghcr.io
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
@@ -47,46 +36,29 @@ jobs:
           global-json-file: global.json
       - name: Restore (locked)
         run: dotnet restore TaleQuilt.slnx --locked-mode
-      - name: Image tags
+      - name: Image tag
         id: tags
         run: |
           short="${GITHUB_SHA::7}"
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo "tags=sha-${short};main" >> "$GITHUB_OUTPUT"
-          else
-            echo "tags=sha-${short}" >> "$GITHUB_OUTPUT"
-          fi
+          echo "tags=sha-${short}" >> "$GITHUB_OUTPUT"
           echo "short=${short}" >> "$GITHUB_OUTPUT"
-      - name: Sign in to GitHub Container Registry (main only)
-        if: github.event_name == 'push'
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login "$REGISTRY" -u "${{ github.actor }}" --password-stdin
-      - name: "Publish images (pull request: to an archive; main: to the registry)"
+      - name: Build both images to archives (nothing is pushed from a pull request)
         run: |
           set -euo pipefail
           mkdir -p images
           for p in Api Worker; do
-            if [ "${{ github.event_name }}" = "push" ]; then
-              dotnet publish "src/TaleQuilt.$p/TaleQuilt.$p.csproj" -c Release -r linux-x64 --no-restore /t:PublishContainer \
-                -p:ContainerRegistry="$REGISTRY" -p:ContainerImageTags='"${{ steps.tags.outputs.tags }}"'
-            else
-              dotnet publish "src/TaleQuilt.$p/TaleQuilt.$p.csproj" -c Release -r linux-x64 --no-restore /t:PublishContainer \
-                -p:ContainerArchiveOutputPath="images/talequilt-$(echo $p | tr A-Z a-z)-${{ steps.tags.outputs.short }}.tar.gz" \
-                -p:ContainerImageTags='"${{ steps.tags.outputs.tags }}"'
-            fi
+            dotnet publish "src/TaleQuilt.$p/TaleQuilt.$p.csproj" -c Release -r linux-x64 --no-restore /t:PublishContainer \
+              -p:ContainerArchiveOutputPath="images/talequilt-$(echo $p | tr A-Z a-z)-${{ steps.tags.outputs.short }}.tar.gz" \
+              -p:ContainerImageTags='"${{ steps.tags.outputs.tags }}"'
           done
       - name: Summary
         run: |
           {
             echo "## Container images"
             echo
-            if [ "${{ github.event_name }}" = "push" ]; then
-              echo "Published to \`$REGISTRY/arhopkins3/talequilt-api\` and \`$REGISTRY/arhopkins3/talequilt-worker\` with tags \`${{ steps.tags.outputs.tags }}\`."
-            else
-              echo "Built to archives (not pushed):"; ls -la images | awk 'NR>1 {print "- `" $NF "` (" $5 " bytes)"}'
-            fi
+            echo "Built to archives (not pushed):"; ls -la images | awk 'NR>1 {print "- `" $NF "` (" $5 " bytes)"}'
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Keep the pull request's archives for a day
-        if: github.event_name == 'pull_request'
+      - name: Keep the archives for a day
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: container-images-${{ steps.tags.outputs.short }}

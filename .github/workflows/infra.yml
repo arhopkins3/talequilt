@@ -52,8 +52,8 @@ jobs:
           APP_IDENTITY_ID: /subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg/providers/Microsoft.ManagedIdentity/userAssignedIdentities/placeholder
           APP_IDENTITY_CLIENT_ID: 00000000-0000-0000-0000-000000000000
           APP_IDENTITY_PRINCIPAL_ID: 00000000-0000-0000-0000-000000000000
-          SQL_ADMIN_OBJECT_ID: 00000000-0000-0000-0000-000000000000
-          SQL_ADMIN_LOGIN: placeholder@example.com
+          DEPLOYER_PRINCIPAL_ID: 00000000-0000-0000-0000-000000000000
+          DEPLOYER_IDENTITY_NAME: id-talequilt-placeholder-deploy
           ALLOWED_IP_RANGES: 203.0.113.1/32
           API_IMAGE: ghcr.io/arhopkins3/talequilt-api:placeholder
           WORKER_IMAGE: ghcr.io/arhopkins3/talequilt-worker:placeholder
