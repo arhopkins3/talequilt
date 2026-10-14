@@ -1,0 +1,198 @@
+# Deploy (ADR 0021). Runs after CI succeeds on main, or by hand. Publishes the container images for the commit CI
+# tested, then deploys staging: signs in to Azure with OpenID Connect as the staging deploy identity (no secret is
+# stored anywhere), deploys the Bicep, runs the EF Core migration bundle as the SQL administrator (the deploy
+# identity), grants the app identity and Alex their database roles, waits for the new API revision to report
+# healthy, builds the web app against the API's hostname and uploads it to Static Web Apps.
+# Production, the G4 approval, the smoke test and the automatic rollback arrive in build pull request 3.
+# Every action is pinned to a commit SHA, with the tag it was taken from as a comment.
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.workflow }}
+  cancel-in-progress: false
+
+env:
+  HEAD_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+  REGISTRY: ghcr.io
+  IMAGE_API: ghcr.io/arhopkins3/talequilt-api
+  IMAGE_WORKER: ghcr.io/arhopkins3/talequilt-worker
+  BICEP_VERSION: "0.48.1"
+  SQLCMD_VERSION: "1.10.0"
+  SQLCMD_SHA256: "92516d98c63d99b0994de5b61350c91f6915f9b76f139a59039fbcb225c2e987"
+  SWA_CLI_VERSION: "2.0.10"
+
+jobs:
+  images:
+    name: Publish images
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.HEAD_SHA }}
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - id: tag
+        run: echo "tag=sha-${HEAD_SHA::7}" >> "$GITHUB_OUTPUT"
+      - name: Restore (locked)
+        run: dotnet restore TaleQuilt.slnx --locked-mode
+      - name: Sign in to GitHub Container Registry
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login "$REGISTRY" -u "${{ github.actor }}" --password-stdin
+      - name: Publish the API and worker images, tagged with the commit and main
+        run: |
+          set -euo pipefail
+          for p in Api Worker; do
+            dotnet publish "src/TaleQuilt.$p/TaleQuilt.$p.csproj" -c Release -r linux-x64 --no-restore /t:PublishContainer \
+              -p:ContainerRegistry="$REGISTRY" -p:ContainerImageTags='"${{ steps.tag.outputs.tag }};main"'
+          done
+          echo "Published $IMAGE_API and $IMAGE_WORKER as ${{ steps.tag.outputs.tag }} and main" >> "$GITHUB_STEP_SUMMARY"
+
+  staging:
+    name: Deploy staging
+    needs: images
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write # OpenID Connect: the run presents a token, Azure trusts it for the staging deploy identity
+    env:
+      ENVIRONMENT_NAME: staging
+      API_IMAGE: ghcr.io/arhopkins3/talequilt-api:${{ needs.images.outputs.tag }}
+      WORKER_IMAGE: ghcr.io/arhopkins3/talequilt-worker:${{ needs.images.outputs.tag }}
+      # Values Alex set on the GitHub environment after infra/bootstrap.sh (none is a secret).
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      APP_IDENTITY_ID: ${{ vars.APP_IDENTITY_ID }}
+      APP_IDENTITY_CLIENT_ID: ${{ vars.APP_IDENTITY_CLIENT_ID }}
+      APP_IDENTITY_PRINCIPAL_ID: ${{ vars.APP_IDENTITY_PRINCIPAL_ID }}
+      SQL_ADMIN_OBJECT_ID: ${{ vars.SQL_ADMIN_OBJECT_ID }}
+      SQL_ADMIN_LOGIN: ${{ vars.SQL_ADMIN_LOGIN }}
+      ALLOWED_IP_RANGES: ${{ vars.ALLOWED_IP_RANGES }}
+      BUDGET_ALERT_EMAIL: ${{ vars.BUDGET_ALERT_EMAIL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.HEAD_SHA }}
+      - name: Refuse to deploy with the API open to the world
+        # The ADR 0008 stopgap: an empty allow-list would make the API public before sign-in exists.
+        run: |
+          if [ -z "${ALLOWED_IP_RANGES// }" ]; then echo "::error::ALLOWED_IP_RANGES is empty; the API would be public (ADR 0008)"; exit 1; fi
+      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Pin the Bicep CLI
+        run: |
+          az bicep install --version "v${BICEP_VERSION}" && az bicep version
+          # The Container Apps commands live in an extension; install it without a prompt on this non-interactive runner.
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az extension add --name containerapp --upgrade -o none
+      - name: Identify the deploy identity (it is the SQL administrator)
+        id: deployer
+        run: |
+          id="/subscriptions/${{ vars.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${AZURE_RESOURCE_GROUP}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-talequilt-${ENVIRONMENT_NAME}-deploy"
+          principal="$(az identity show --ids "$id" --query principalId -o tsv)"
+          echo "DEPLOYER_PRINCIPAL_ID=$principal" >> "$GITHUB_ENV"
+          echo "DEPLOYER_IDENTITY_NAME=id-talequilt-${ENVIRONMENT_NAME}-deploy" >> "$GITHUB_ENV"
+      - name: What-if (the plan, in the log)
+        run: |
+          set -o pipefail
+          az deployment group what-if --resource-group "$AZURE_RESOURCE_GROUP" \
+            --template-file infra/main.bicep --parameters "infra/parameters/${ENVIRONMENT_NAME}.bicepparam" \
+            --result-format FullResourcePayloads 2>&1 | tee what-if.txt
+      - name: Deploy the Bicep
+        id: deploy
+        run: |
+          az deployment group create --name "deploy-${HEAD_SHA::7}-${{ github.run_id }}" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --template-file infra/main.bicep --parameters "infra/parameters/${ENVIRONMENT_NAME}.bicepparam" \
+            --query properties.outputs -o json > outputs.json
+          for k in apiFqdn apiAppName sqlServerFqdn sqlDatabaseName webAppName webDefaultHostname; do
+            v="$(python3 -c "import json,sys; print(json.load(open('outputs.json'))[sys.argv[1]]['value'])" "$k")"
+            echo "$k=$v" >> "$GITHUB_OUTPUT"
+          done
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          global-json-file: global.json
+      - name: Build the migration bundle
+        run: |
+          dotnet restore TaleQuilt.slnx --locked-mode
+          dotnet tool restore
+          dotnet ef migrations bundle --project src/TaleQuilt.Core --startup-project src/TaleQuilt.Api \
+            --configuration Release --self-contained -r linux-x64 -o efbundle --force
+      - name: Apply migrations as the SQL administrator (the deploy identity, signed in through OpenID Connect)
+        env:
+          SQL_SERVER: ${{ steps.deploy.outputs.sqlServerFqdn }}
+          SQL_DATABASE: ${{ steps.deploy.outputs.sqlDatabaseName }}
+        run: |
+          ./efbundle --connection "Server=tcp:${SQL_SERVER},1433;Database=${SQL_DATABASE};Authentication=Active Directory Default;Encrypt=True;Connection Timeout=60;"
+      - name: Install sqlcmd (release pinned by version and checksum)
+        run: |
+          curl -sSL -o sqlcmd.tar.bz2 "https://github.com/microsoft/go-sqlcmd/releases/download/v${SQLCMD_VERSION}/sqlcmd-linux-amd64.tar.bz2"
+          echo "${SQLCMD_SHA256}  sqlcmd.tar.bz2" | sha256sum -c -
+          tar xjf sqlcmd.tar.bz2 sqlcmd
+      - name: Grant the app identity and Alex their database roles
+        env:
+          SQL_SERVER: ${{ steps.deploy.outputs.sqlServerFqdn }}
+          SQL_DATABASE: ${{ steps.deploy.outputs.sqlDatabaseName }}
+          APP_IDENTITY_NAME: id-talequilt-${{ env.ENVIRONMENT_NAME }}-app
+        run: |
+          ./sqlcmd -S "tcp:${SQL_SERVER},1433" -d "$SQL_DATABASE" --authentication-method ActiveDirectoryAzCli \
+            -v AppIdentity="$APP_IDENTITY_NAME" -v HumanLogin="$SQL_ADMIN_LOGIN" -i eng/deploy/grant-users.sql
+      - name: Wait for the API revision to report healthy
+        env:
+          API_APP: ${{ steps.deploy.outputs.apiAppName }}
+        run: |
+          for i in $(seq 1 30); do
+            state="$(az containerapp revision list --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
+              --query "[?properties.active].{h:properties.healthState,p:properties.provisioningState}|[0]" -o json)"
+            echo "$state"
+            if echo "$state" | grep -q '"h": "Healthy"'; then echo "API revision healthy"; exit 0; fi
+            sleep 10
+          done
+          echo "::error::The API revision did not become healthy in five minutes"; exit 1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+      - name: Build the web app against the staging API
+        working-directory: src/web
+        env:
+          VITE_API_BASE_URL: https://${{ steps.deploy.outputs.apiFqdn }}
+        run: npm ci && npm run build
+      - name: Upload the web app to Static Web Apps
+        env:
+          WEB_APP: ${{ steps.deploy.outputs.webAppName }}
+        run: |
+          # The deployment token is read at run time with the deploy identity's rights and never stored.
+          token="$(az staticwebapp secrets list --name "$WEB_APP" --resource-group "$AZURE_RESOURCE_GROUP" --query properties.apiKey -o tsv)"
+          echo "::add-mask::$token"
+          npx --yes "@azure/static-web-apps-cli@${SWA_CLI_VERSION}" deploy src/web/dist --deployment-token "$token" --env production
+      - name: Summary
+        run: |
+          {
+            echo "## Staging"
+            echo
+            echo "- Commit: \`${HEAD_SHA}\`, images \`${{ needs.images.outputs.tag }}\`"
+            echo "- API: https://${{ steps.deploy.outputs.apiFqdn }} (IP allow-list, ADR 0008)"
+            echo "- Web: https://${{ steps.deploy.outputs.webDefaultHostname }} (invited users only)"
+            echo "- SQL: ${{ steps.deploy.outputs.sqlServerFqdn }} / ${{ steps.deploy.outputs.sqlDatabaseName }}, migrated"
+          } >> "$GITHUB_STEP_SUMMARY"
