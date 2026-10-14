@@ -111,6 +111,7 @@ module apps 'modules/containerapps.bicep' = {
     sqlConnectionString: sql.outputs.connectionString
     storageAccountName: storage.outputs.storageAccountName
     keyVaultUri: keyVault.outputs.vaultUri
+    webOrigin: 'https://${web.outputs.defaultHostname}'
   }
 }
 

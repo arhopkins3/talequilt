@@ -1,0 +1,26 @@
+{
+  "$comment": "Static Web Apps configuration (ADR 0021, the ADR 0008 stopgap). Every route needs the 'author' role, which only an invited user holds; anyone else is sent to GitHub sign-in. Removed in Phase 5 when the app's own sign-in exists. Vite copies this file to the build output unchanged.",
+  "routes": [
+    { "route": "/.auth/login/github", "allowedRoles": ["anonymous", "authenticated"] },
+    { "route": "/.auth/logout", "allowedRoles": ["anonymous", "authenticated"] },
+    { "route": "/.auth/login/*", "statusCode": 404 },
+    { "route": "/*", "allowedRoles": ["author"] }
+  ],
+  "responseOverrides": {
+    "401": {
+      "redirect": "/.auth/login/github?post_login_redirect_uri=.referrer",
+      "statusCode": 302
+    },
+    "403": { "statusCode": 403 }
+  },
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/assets/*", "/*.{css,js,ico,png,svg,txt,json}"]
+  },
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()"
+  }
+}
