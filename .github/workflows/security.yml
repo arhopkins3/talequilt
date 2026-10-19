@@ -43,7 +43,7 @@ jobs:
             build-mode: none
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+      - uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
@@ -57,7 +57,7 @@ jobs:
         run: |
           dotnet restore TaleQuilt.slnx --locked-mode
           dotnet build TaleQuilt.slnx --no-restore -c Release --nologo
-      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+      - uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
           category: /language:${{ matrix.language }}
 
@@ -91,7 +91,7 @@ jobs:
         run: ./gitleaks dir . --redact --no-banner --exit-code 1
       - name: Upload findings to the Security tab
         if: always()
-        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
+        uses: github/codeql-action/upload-sarif@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
         with:
           sarif_file: ${{ runner.temp }}/gitleaks-history.sarif
           category: gitleaks
@@ -152,7 +152,7 @@ jobs:
             echo "No Bicep under infra/ yet; Phase 3 writes it. The scan runs on the first file." >> "$GITHUB_STEP_SUMMARY"
           fi
       - if: steps.bicep.outputs.found == 'true'
-        uses: bridgecrewio/checkov-action@c13aafd679d3814a25067d10fcaf98c4f7594931 # v12.3131.0
+        uses: bridgecrewio/checkov-action@6f26dc90000b74feb589a906cdfae540f5119895 # v12.3134.0
         with:
           directory: infra
           framework: bicep
