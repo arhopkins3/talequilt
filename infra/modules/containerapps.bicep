@@ -61,6 +61,8 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
         targetPort: 8080
         transport: 'http'
         allowInsecure: false
+        // Every deploy points traffic at the newest revision; a rollback moves it back by hand (ADR 0021).
+        traffic: [ { latestRevision: true, weight: 100 } ]
         ipSecurityRestrictions: [for (range, i) in allowedIpRanges: {
           name: 'allow-${i}'
           action: 'Allow'
