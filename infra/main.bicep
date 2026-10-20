@@ -22,11 +22,15 @@ param appIdentityClientId string
 @description('Principal (object) id of that identity, for role assignments.')
 param appIdentityPrincipalId string
 
-@description('Entra object id of the SQL server administrator (Alex). Entra-only authentication; no SQL passwords exist.')
+@description('Entra object id of the SQL server administrator: the environment\'s deploy identity (ADR 0021). Entra-only authentication; no SQL passwords exist.')
 param sqlAdminObjectId string
 
-@description('Sign-in name shown for the SQL administrator, for example an email address.')
+@description('Display name of the SQL administrator, the deploy identity\'s name.')
 param sqlAdminLogin string
+
+@description('Whether the administrator is a person or an application (a managed identity).')
+@allowed(['User', 'Application'])
+param sqlAdminPrincipalType string = 'Application'
 
 @description('IP ranges allowed to reach the API, in CIDR. The ADR 0008 stopgap until sign-in exists in Phase 5.')
 param allowedIpRanges array
@@ -90,6 +94,7 @@ module sql 'modules/sql.bicep' = {
     tags: tags
     adminObjectId: sqlAdminObjectId
     adminLogin: sqlAdminLogin
+    adminPrincipalType: sqlAdminPrincipalType
     logAnalyticsWorkspaceId: logs.outputs.workspaceId
     alertEmail: budgetAlertEmail
   }

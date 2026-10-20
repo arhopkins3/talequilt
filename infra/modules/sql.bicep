@@ -1,11 +1,15 @@
 // Azure SQL serverless with auto-pause (ADR 0007). Entra-only authentication: no SQL password exists anywhere.
-// The apps connect as their managed identity, which the deploy workflow adds as a database user (ADR 0021).
+// The administrator is the environment's deploy identity, so the Deploy workflow can run migrations and grant
+// the app identity and Alex their roles without a human SQL step (ADR 0021). The server has no managed identity on
+// purpose: database users are created by Entra identifier (eng/deploy/grant-users.sql), which needs no Graph lookup.
 param serverName string
 param databaseName string
 param location string
 param tags object
 param adminObjectId string
 param adminLogin string
+@allowed(['User', 'Application'])
+param adminPrincipalType string
 param logAnalyticsWorkspaceId string
 param alertEmail string
 
@@ -24,7 +28,7 @@ resource server 'Microsoft.Sql/servers@2023-08-01-preview' = {
       login: adminLogin
       sid: adminObjectId
       tenantId: subscription().tenantId
-      principalType: 'User'
+      principalType: adminPrincipalType
     }
   }
 }

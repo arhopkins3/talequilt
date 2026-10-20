@@ -67,10 +67,25 @@ Done. Create the GitHub environment "${ENVIRONMENT}" and set these as environmen
   APP_IDENTITY_ID            ${APP_ID}
   APP_IDENTITY_CLIENT_ID     ${APP_CLIENT}
   APP_IDENTITY_PRINCIPAL_ID  ${APP_PRINCIPAL}
-  SQL_ADMIN_OBJECT_ID        ${ME_OBJECT_ID}
+  SQL_ADMIN_OBJECT_ID        ${ME_OBJECT_ID}        (you; the pipeline makes this account db_owner)
   SQL_ADMIN_LOGIN            ${ME_LOGIN}
   ALLOWED_IP_RANGES          <your public IP>/32   (comma-separated CIDRs; ADR 0008 stopgap)
   BUDGET_ALERT_EMAIL         <your email>
 
 For production, also add yourself as required reviewer on the environment: that is gate G4.
+
+Or, with the GitHub CLI signed in (gh auth login), paste this after filling in the two placeholders:
+
+  gh api --method PUT repos/${REPO}/environments/${ENVIRONMENT} >/dev/null
+  gh variable set AZURE_CLIENT_ID           --repo ${REPO} --env ${ENVIRONMENT} --body "${DEPLOYER_CLIENT}"
+  gh variable set AZURE_TENANT_ID           --repo ${REPO} --env ${ENVIRONMENT} --body "${TENANT_ID}"
+  gh variable set AZURE_SUBSCRIPTION_ID     --repo ${REPO} --env ${ENVIRONMENT} --body "${SUBSCRIPTION_ID}"
+  gh variable set AZURE_RESOURCE_GROUP      --repo ${REPO} --env ${ENVIRONMENT} --body "${RG}"
+  gh variable set APP_IDENTITY_ID           --repo ${REPO} --env ${ENVIRONMENT} --body "${APP_ID}"
+  gh variable set APP_IDENTITY_CLIENT_ID    --repo ${REPO} --env ${ENVIRONMENT} --body "${APP_CLIENT}"
+  gh variable set APP_IDENTITY_PRINCIPAL_ID --repo ${REPO} --env ${ENVIRONMENT} --body "${APP_PRINCIPAL}"
+  gh variable set SQL_ADMIN_OBJECT_ID       --repo ${REPO} --env ${ENVIRONMENT} --body "${ME_OBJECT_ID}"
+  gh variable set SQL_ADMIN_LOGIN           --repo ${REPO} --env ${ENVIRONMENT} --body "${ME_LOGIN}"
+  gh variable set ALLOWED_IP_RANGES         --repo ${REPO} --env ${ENVIRONMENT} --body "<your public IP>/32"
+  gh variable set BUDGET_ALERT_EMAIL        --repo ${REPO} --env ${ENVIRONMENT} --body "<your email>"
 SUMMARY
