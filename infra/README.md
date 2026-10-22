@@ -17,7 +17,7 @@ modules/containerapps.bicep Container Apps environment, the API (ingress behind 
 modules/staticwebapp.bicep  Static Web Apps, free tier, for the React build
 modules/budget.bicep        Budget on the resource group with alerts at 50 and 100 percent
 parameters/*.bicepparam     Staging and production; identity and account values come from GitHub environment variables
-bootstrap.sh                The one-time, per-environment setup Alex runs
+bootstrap.sh                The one-time, per-environment setup Alex runs; safe to re-run, it updates in place
 ```
 
 ## Checks

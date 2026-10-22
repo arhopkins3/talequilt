@@ -66,6 +66,8 @@ Checkov's first run on real Bicep (pull request 1) reported fourteen findings. E
 | GitHub environments `staging` and `production`; Alex as required reviewer on `production` | G4 | Pull request 3 |
 | Budget alerts to Alex's email | Cost guardrail | Pull request 4 |
 
+**First staging run, 20 October 2026.** The first `Deploy` run on `main` published both images and then failed at the Azure sign-in with `AADSTS700213: No matching federated identity record found`. GitHub presents this repository's OpenID Connect subject in its immutable format, `repo:arhopkins3@687013/talequilt@1409238011:environment:staging`, the default for repositories created after 15 July 2026, while the bootstrap had registered the older name-only subject. The bootstrap now computes the immutable subject from GitHub's public API and updates the credential in place, so re-running `infra/bootstrap.sh staging` repairs it. A candidate for the debrief: the pipeline's one hand-made object was the one that drifted from its platform's current format, and the gate caught it before any resource was touched.
+
 ## Break it: the drill
 
 1. **Unapproved production deploy.** Merge a change and do nothing. Expected: staging deploys and passes; the production job waits on the `production` environment and nothing reaches it.

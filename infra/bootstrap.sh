@@ -8,6 +8,9 @@
 # Contributor and Role Based Access Control Administrator on the resource group only; and a second user-assigned
 # identity the API and worker run as. It prints the values to put in the GitHub environment as variables.
 #
+# Safe to re-run: every step creates or updates in place, and the federated credential is corrected if GitHub's
+# subject format has changed since it was first created (see the note at that step).
+#
 # Usage: infra/bootstrap.sh <staging|production> [location]
 set -euo pipefail
 
@@ -37,12 +40,27 @@ APP_PRINCIPAL="$(az identity show --name "$APP" --resource-group "$RG" --query p
 
 # The federated credential: GitHub's OIDC issuer, and a subject that names this repository and this GitHub
 # environment. A run from another repository, branch or environment presents a different subject and is refused.
-az identity federated-credential create \
+# GitHub's immutable subject format (default for repositories created after 15 July 2026, which this one is)
+# carries the owner and repository IDs: repo:<owner>@<owner id>/<repo>@<repo id>:environment:<name>. A rename or
+# transfer then leaves the subject unchanged. The IDs come from GitHub's public API; the first staging run failed
+# with AADSTS700213 because the credential had been created with the older name-only subject.
+OWNER="${REPO%%/*}"
+NAME="${REPO##*/}"
+OWNER_ID="$(az rest --url "https://api.github.com/repos/${REPO}" --skip-authorization-header --query owner.id -o tsv)"
+REPO_ID="$(az rest --url "https://api.github.com/repos/${REPO}" --skip-authorization-header --query id -o tsv)"
+SUBJECT="repo:${OWNER}@${OWNER_ID}/${NAME}@${REPO_ID}:environment:${ENVIRONMENT}"
+echo "Federated credential subject: $SUBJECT"
+if az identity federated-credential show --name "github-${ENVIRONMENT}" --identity-name "$DEPLOYER" --resource-group "$RG" -o none 2>/dev/null; then
+  CREDENTIAL_VERB=update
+else
+  CREDENTIAL_VERB=create
+fi
+az identity federated-credential "$CREDENTIAL_VERB" \
   --name "github-${ENVIRONMENT}" \
   --identity-name "$DEPLOYER" \
   --resource-group "$RG" \
   --issuer "https://token.actions.githubusercontent.com" \
-  --subject "repo:${REPO}:environment:${ENVIRONMENT}" \
+  --subject "$SUBJECT" \
   --audiences "api://AzureADTokenExchange" -o none
 
 RG_SCOPE="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RG}"
