@@ -22,7 +22,7 @@ resource workspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existin
   name: last(split(logAnalyticsWorkspaceId, '/'))
 }
 
-resource environment 'Microsoft.App/managedEnvironments@2024-03-01' = {
+resource environment 'Microsoft.App/managedEnvironments@2025-01-01' = {
   name: '${prefix}-env'
   location: location
   tags: tags
@@ -47,7 +47,7 @@ var commonEnv = [
   { name: 'ASPNETCORE_FORWARDEDHEADERS_ENABLED', value: 'true' }
 ]
 
-resource api 'Microsoft.App/containerApps@2024-03-01' = {
+resource api 'Microsoft.App/containerApps@2025-01-01' = {
   name: '${prefix}-api'
   location: location
   tags: tags
@@ -90,7 +90,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
   }
 }
 
-resource worker 'Microsoft.App/containerApps@2024-03-01' = {
+resource worker 'Microsoft.App/containerApps@2025-01-01' = {
   name: '${prefix}-worker'
   location: location
   tags: tags
@@ -115,8 +115,10 @@ resource worker 'Microsoft.App/containerApps@2024-03-01' = {
         maxReplicas: 1
         rules: [
           {
+            // The scaler reads the queue length as the app identity (Storage Queue Data Contributor, granted in
+            // storage.bicep): no storage key exists to put in a secret. Needs API 2025-01-01 or later.
             name: 'jobs-queue'
-            azureQueue: { queueName: 'jobs', queueLength: 1, auth: [] }
+            azureQueue: { accountName: storageAccountName, queueName: 'jobs', queueLength: 1, identity: appIdentityId }
           }
         ]
       }
