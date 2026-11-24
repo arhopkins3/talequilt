@@ -160,6 +160,19 @@ jobs:
           dotnet tool restore
           dotnet ef migrations bundle --project src/TaleQuilt.Core --startup-project src/TaleQuilt.Api \
             --configuration Release --self-contained -r linux-x64 -o efbundle --force
+      - name: Open the SQL firewall to this runner for the rest of the job
+        # GitHub-hosted runners no longer all sit in Azure's address space (Deploy run 7 came from an AWS address),
+        # so the "allow Azure services" rule is not enough. The rule is scoped to this runner's address and this
+        # run, and the last step of the job removes it whatever happened in between.
+        id: firewall
+        env:
+          SQL_SERVER: ${{ steps.deploy.outputs.sqlServerFqdn }}
+        run: |
+          runner_ip="$(curl -fsS https://api.ipify.org || curl -fsS https://ifconfig.me/ip)"
+          [[ "$runner_ip" =~ ^[0-9.]+$ ]] || { echo "::error::Could not determine the runner's public address"; exit 1; }
+          az sql server firewall-rule create --resource-group "$AZURE_RESOURCE_GROUP" --server "${SQL_SERVER%%.*}" \
+            --name "github-run-${{ github.run_id }}" --start-ip-address "$runner_ip" --end-ip-address "$runner_ip" -o none
+          echo "Runner $runner_ip may reach ${SQL_SERVER%%.*} until this job ends"
       - name: Apply migrations as the SQL administrator (the deploy identity, signed in through OpenID Connect)
         env:
           SQL_SERVER: ${{ steps.deploy.outputs.sqlServerFqdn }}
@@ -255,3 +268,11 @@ jobs:
             echo "- Web: https://${{ steps.deploy.outputs.webDefaultHostname }} (invited users only)"
             echo "- SQL: ${{ steps.deploy.outputs.sqlServerFqdn }} / ${{ steps.deploy.outputs.sqlDatabaseName }}, migrated"
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Close the SQL firewall to this runner
+        # Runs whether the job passed, failed or was cancelled, as long as the rule was created.
+        if: always() && steps.firewall.outcome == 'success'
+        env:
+          SQL_SERVER: ${{ steps.deploy.outputs.sqlServerFqdn }}
+        run: |
+          az sql server firewall-rule delete --resource-group "$AZURE_RESOURCE_GROUP" --server "${SQL_SERVER%%.*}" \
+            --name "github-run-${{ github.run_id }}" -o none
