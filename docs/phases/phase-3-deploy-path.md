@@ -70,6 +70,8 @@ Checkov's first run on real Bicep (pull request 1) reported fourteen findings. E
 
 **Runs 2 to 7, 20 October to 24 November 2026.** Each later run failed one step further on, and each failure became a pull request: the Static Web Apps free-tier quota (three old sites deleted by hand), the worker's queue scale rule with no identity, four SQL security resources racing to write the same alert policy, a lock file left stale by a Dependabot merge, and in run 7 the SQL firewall refusing the GitHub runner, which came from an address outside Azure where the "allow Azure services" rule does not reach. The workflow now opens a firewall rule for the runner's address at the start of the database steps and removes it at the end of the job. Run 5 reached the health wait and the API revision never became healthy; the workflow now prints the revision's details and container logs when that happens, so the next run explains it.
 
+**Run 10, 24 November 2026: the first green deploy.** With the firewall rule in place the whole chain ran in about eleven minutes: images published, sign-in, what-if, Bicep, migrations, grants, rollout, the new API revision healthy in about a minute, web app built and uploaded. Runs 11 and 13, triggered by dependency merges the same afternoon, repeated it unchanged. Build item 2 is complete; the staging environment is live and reachable from the allow-listed address and by invited users.
+
 ## Break it: the drill
 
 1. **Unapproved production deploy.** Merge a change and do nothing. Expected: staging deploys and passes; the production job waits on the `production` environment and nothing reaches it.
