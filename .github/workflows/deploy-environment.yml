@@ -1,0 +1,322 @@
+# Deploy one environment (ADR 0021). Called by deploy.yml once for staging and once for production, with the GitHub
+# environment of the same name: its variables say what to deploy and who may reach it, and on production its
+# required reviewer is gate G4, so the job waits there until Alex approves.
+#
+# In order: sign in to Azure with OpenID Connect as the environment's deploy identity (no secret is stored anywhere);
+# show the what-if; deploy the Bicep with the images already running, so no new code starts yet; run the EF Core
+# migration bundle as the SQL administrator (the deploy identity); grant the app identity and Alex their database
+# roles; roll the new images out; wait for that API revision to report healthy; smoke-test the API through a
+# transient allow-list entry for this runner; build the web app against the API's hostname and upload it; check the
+# web front door is up and locked. If anything after the rollout fails, traffic shifts back to the previous API
+# revision, both apps return to their previous images, and the run is red.
+# Every action is pinned to a commit SHA, with the tag it was taken from as a comment.
+name: Deploy environment
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: staging or production; also the GitHub environment whose variables and reviewers apply
+        type: string
+        required: true
+      head_sha:
+        description: The commit being deployed (the one CI tested)
+        type: string
+        required: true
+      image_tag:
+        description: The image tag the Publish images job pushed for that commit
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  BICEP_VERSION: "0.48.1"
+  SQLCMD_VERSION: "1.10.0"
+  SQLCMD_SHA256: "92516d98c63d99b0994de5b61350c91f6915f9b76f139a59039fbcb225c2e987"
+  SWA_CLI_VERSION: "2.0.10"
+
+jobs:
+  deploy:
+    name: Deploy ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: ${{ inputs.environment }}
+    concurrency:
+      # One deploy per environment at a time, never cancelled midway. A production job waiting at G4 holds only
+      # the production group, so staging keeps deploying while Alex decides.
+      group: deploy-${{ inputs.environment }}
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write # OpenID Connect: the run presents a token, Azure trusts it for this environment's deploy identity
+    env:
+      ENVIRONMENT_NAME: ${{ inputs.environment }}
+      HEAD_SHA: ${{ inputs.head_sha }}
+      NEW_API_IMAGE: ghcr.io/arhopkins3/talequilt-api:${{ inputs.image_tag }}
+      NEW_WORKER_IMAGE: ghcr.io/arhopkins3/talequilt-worker:${{ inputs.image_tag }}
+      API_APP: talequilt-${{ inputs.environment }}-api
+      WORKER_APP: talequilt-${{ inputs.environment }}-worker
+      RUN_RULE: github-run-${{ github.run_id }}
+      # Values Alex set on the GitHub environment after infra/bootstrap.sh (none is a secret).
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      APP_IDENTITY_ID: ${{ vars.APP_IDENTITY_ID }}
+      APP_IDENTITY_CLIENT_ID: ${{ vars.APP_IDENTITY_CLIENT_ID }}
+      APP_IDENTITY_PRINCIPAL_ID: ${{ vars.APP_IDENTITY_PRINCIPAL_ID }}
+      SQL_ADMIN_OBJECT_ID: ${{ vars.SQL_ADMIN_OBJECT_ID }}
+      SQL_ADMIN_LOGIN: ${{ vars.SQL_ADMIN_LOGIN }}
+      ALLOWED_IP_RANGES: ${{ vars.ALLOWED_IP_RANGES }}
+      BUDGET_ALERT_EMAIL: ${{ vars.BUDGET_ALERT_EMAIL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.HEAD_SHA }}
+      - name: Refuse to deploy with the API open to the world
+        # The ADR 0008 stopgap: an empty allow-list would make the API public before sign-in exists.
+        run: |
+          if [ -z "${ALLOWED_IP_RANGES// }" ]; then echo "::error::ALLOWED_IP_RANGES is empty; the API would be public (ADR 0008)"; exit 1; fi
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Pin the Bicep CLI
+        run: |
+          az bicep install --version "v${BICEP_VERSION}" && az bicep version
+          # The Container Apps commands live in an extension; install it without a prompt on this non-interactive runner.
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az extension add --name containerapp --upgrade -o none
+      - name: Identify the deploy identity (it is the SQL administrator)
+        run: |
+          id="/subscriptions/${{ vars.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${AZURE_RESOURCE_GROUP}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-talequilt-${ENVIRONMENT_NAME}-deploy"
+          principal="$(az identity show --ids "$id" --query principalId -o tsv)"
+          echo "DEPLOYER_PRINCIPAL_ID=$principal" >> "$GITHUB_ENV"
+          echo "DEPLOYER_IDENTITY_NAME=id-talequilt-${ENVIRONMENT_NAME}-deploy" >> "$GITHUB_ENV"
+      - name: Find this runner's public address
+        # Used for the two transient allow-list entries below. GitHub-hosted runners no longer all sit in Azure's
+        # address space, so "allow Azure services" rules do not cover them.
+        run: |
+          runner_ip="$(curl -fsS https://api.ipify.org || curl -fsS https://ifconfig.me/ip)"
+          [[ "$runner_ip" =~ ^[0-9.]+$ ]] || { echo "::error::Could not determine the runner's public address"; exit 1; }
+          echo "RUNNER_IP=$runner_ip" >> "$GITHUB_ENV"
+      - name: Keep the running images for the infrastructure deploy
+        # The Bicep is deployed with the images already running (none on the first deployment), so no new revision
+        # starts before the migrations below. The new images roll out in a later step. The same values are what a
+        # rollback returns to.
+        run: |
+          current_api="$(az containerapp show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query 'properties.template.containers[0].image' -o tsv 2>/dev/null || true)"
+          current_worker="$(az containerapp show --name "$WORKER_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query 'properties.template.containers[0].image' -o tsv 2>/dev/null || true)"
+          echo "API_IMAGE=${current_api:-$NEW_API_IMAGE}" >> "$GITHUB_ENV"
+          echo "WORKER_IMAGE=${current_worker:-$NEW_WORKER_IMAGE}" >> "$GITHUB_ENV"
+          echo "PREVIOUS_API_IMAGE=${current_api}" >> "$GITHUB_ENV"
+          echo "PREVIOUS_WORKER_IMAGE=${current_worker}" >> "$GITHUB_ENV"
+          echo "Infrastructure deploy uses API ${current_api:-$NEW_API_IMAGE (first deployment)} and worker ${current_worker:-$NEW_WORKER_IMAGE (first deployment)}"
+      - name: What-if (the plan, in the log)
+        run: |
+          set -o pipefail
+          az deployment group what-if --resource-group "$AZURE_RESOURCE_GROUP" \
+            --template-file infra/main.bicep --parameters "infra/parameters/${ENVIRONMENT_NAME}.bicepparam" \
+            --result-format FullResourcePayloads 2>&1 | tee what-if.txt
+      - name: Deploy the Bicep
+        id: deploy
+        run: |
+          az deployment group create --name "deploy-${HEAD_SHA::7}-${{ github.run_id }}" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --template-file infra/main.bicep --parameters "infra/parameters/${ENVIRONMENT_NAME}.bicepparam" \
+            --query properties.outputs -o json > outputs.json
+          for k in apiFqdn apiAppName sqlServerFqdn sqlDatabaseName webAppName webDefaultHostname; do
+            v="$(python3 -c "import json,sys; print(json.load(open('outputs.json'))[sys.argv[1]]['value'])" "$k")"
+            echo "$k=$v" >> "$GITHUB_OUTPUT"
+          done
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+      - name: Build the migration bundle
+        run: |
+          dotnet restore TaleQuilt.slnx --locked-mode
+          dotnet tool restore
+          dotnet ef migrations bundle --project src/TaleQuilt.Core --startup-project src/TaleQuilt.Api \
+            --configuration Release --self-contained -r linux-x64 -o efbundle --force
+      - name: Open the SQL firewall to this runner for the rest of the job
+        # Scoped to this runner's address and this run; the last step of the job removes it whatever happened.
+        id: firewall
+        env:
+          SQL_SERVER: ${{ steps.deploy.outputs.sqlServerFqdn }}
+        run: |
+          az sql server firewall-rule create --resource-group "$AZURE_RESOURCE_GROUP" --server "${SQL_SERVER%%.*}" \
+            --name "$RUN_RULE" --start-ip-address "$RUNNER_IP" --end-ip-address "$RUNNER_IP" -o none
+          echo "Runner $RUNNER_IP may reach ${SQL_SERVER%%.*} until this job ends"
+      - name: Apply migrations as the SQL administrator (the deploy identity, signed in through OpenID Connect)
+        env:
+          SQL_SERVER: ${{ steps.deploy.outputs.sqlServerFqdn }}
+          SQL_DATABASE: ${{ steps.deploy.outputs.sqlDatabaseName }}
+        run: |
+          ./efbundle --connection "Server=tcp:${SQL_SERVER},1433;Database=${SQL_DATABASE};Authentication=Active Directory Default;Encrypt=True;Connection Timeout=60;"
+      - name: Install sqlcmd (release pinned by version and checksum)
+        run: |
+          curl -sSL -o sqlcmd.tar.bz2 "https://github.com/microsoft/go-sqlcmd/releases/download/v${SQLCMD_VERSION}/sqlcmd-linux-amd64.tar.bz2"
+          echo "${SQLCMD_SHA256}  sqlcmd.tar.bz2" | sha256sum -c -
+          tar xjf sqlcmd.tar.bz2 sqlcmd
+      - name: Grant the app identity and Alex their database roles
+        # Users are created by Entra ID (SID), not by name: a service principal cannot look names up in Microsoft Graph
+        # without a server identity holding directory rights, and this way the server needs none. -b fails the step
+        # on the first SQL error.
+        env:
+          SQL_SERVER: ${{ steps.deploy.outputs.sqlServerFqdn }}
+          SQL_DATABASE: ${{ steps.deploy.outputs.sqlDatabaseName }}
+          APP_IDENTITY_NAME: id-talequilt-${{ inputs.environment }}-app
+        run: |
+          ./sqlcmd -b -S "tcp:${SQL_SERVER},1433" -d "$SQL_DATABASE" --authentication-method ActiveDirectoryAzCli \
+            -v AppIdentity="$APP_IDENTITY_NAME" -v AppClientId="$APP_IDENTITY_CLIENT_ID" \
+            -v HumanLogin="$SQL_ADMIN_LOGIN" -v HumanObjectId="$SQL_ADMIN_OBJECT_ID" -i eng/deploy/grant-users.sql
+      - name: Roll out the new images
+        # The schema is now at least as new as the code, so the new revisions can start. The revision serving before
+        # the rollout is recorded first: it is what a rollback shifts traffic back to.
+        id: rollout
+        run: |
+          previous="$(az containerapp show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --query properties.latestRevisionName -o tsv)"
+          az containerapp update --name "$WORKER_APP" --resource-group "$AZURE_RESOURCE_GROUP" --image "$NEW_WORKER_IMAGE" -o none
+          az containerapp update --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --image "$NEW_API_IMAGE" -o none
+          revision="$(az containerapp show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --query properties.latestRevisionName -o tsv)"
+          if [ "$revision" = "$previous" ]; then previous=""; fi # first deployment, or the same image again: nothing to return to
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          echo "previous_revision=$previous" >> "$GITHUB_OUTPUT"
+          echo "API revision $revision (previous: ${previous:-none})"
+      - name: Wait for the new API revision to report healthy
+        # Polls the revision the rollout created, not whichever active revision lists first: the API keeps several
+        # revisions active so traffic can be shifted back (ADR 0021).
+        env:
+          REVISION: ${{ steps.rollout.outputs.revision }}
+        run: |
+          for i in $(seq 1 30); do
+            state="$(az containerapp revision show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" \
+              --query "{h:properties.healthState,p:properties.provisioningState,r:properties.runningState}" -o json)"
+            echo "$state"
+            if echo "$state" | grep -q '"h": "Healthy"'; then echo "API revision $REVISION healthy"; exit 0; fi
+            sleep 10
+          done
+          echo "::error::API revision $REVISION did not become healthy in five minutes"; exit 1
+      - name: Explain the failed revision (runs only when a step after the rollout failed)
+        # Puts what Azure knows into the job log, so the cause is in the run and nobody has to sign in to look:
+        # the revision's running-state details, the replicas, and the platform (system) and application (console)
+        # logs for the revision.
+        if: failure() && steps.rollout.outcome == 'success'
+        env:
+          REVISION: ${{ steps.rollout.outputs.revision }}
+        run: |
+          echo "::group::Revision"
+          az containerapp revision show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" \
+            --query "{running:properties.runningState,details:properties.runningStateDetails,health:properties.healthState,replicas:properties.replicas,image:properties.template.containers[0].image}" -o json || true
+          echo "::endgroup::"
+          echo "::group::Replicas"
+          az containerapp replica list --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" -o json || true
+          echo "::endgroup::"
+          echo "::group::System log (platform events: pulls, probes, restarts)"
+          az containerapp logs show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" --type system --tail 100 || true
+          echo "::endgroup::"
+          echo "::group::Console log (what the API wrote)"
+          az containerapp logs show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" --type console --tail 100 || true
+          echo "::endgroup::"
+      - name: Open the API allow-list to this runner for the smoke test
+        # The API answers only allow-listed addresses (ADR 0008). The entry is for this runner and this run, is an
+        # ingress setting rather than a revision, and is removed at the end of the job; the next Bicep deploy would
+        # remove a leftover too, since it owns the list.
+        id: allow
+        run: |
+          az containerapp ingress access-restriction set --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --rule-name "$RUN_RULE" --ip-address "${RUNNER_IP}/32" --action Allow \
+            --description "GitHub runner for the smoke test of run ${{ github.run_id }}; removed at the end of the job" -o none
+      - name: Smoke test the API
+        # The one check that matters after a deploy: the health endpoint, which includes the database, answers from
+        # outside. Retries cover the allow-list entry propagating and a cold start.
+        env:
+          API_FQDN: ${{ steps.deploy.outputs.apiFqdn }}
+        run: |
+          for i in $(seq 1 18); do
+            code="$(curl -sS -o body.txt -w '%{http_code}' --max-time 30 "https://${API_FQDN}/api/health" || echo 000)"
+            if [ "$code" = "200" ] && grep -q "Healthy" body.txt; then
+              echo "Smoke test passed: GET /api/health -> 200 $(cat body.txt)"; exit 0
+            fi
+            echo "attempt $i: HTTP $code $(head -c 200 body.txt 2>/dev/null)"; sleep 10
+          done
+          echo "::error::Smoke test failed: /api/health did not return 200 Healthy within three minutes"; exit 1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+      - name: Build the web app against this environment's API
+        working-directory: src/web
+        env:
+          VITE_API_BASE_URL: https://${{ steps.deploy.outputs.apiFqdn }}
+        run: npm ci && npm run build
+      - name: Upload the web app to Static Web Apps
+        env:
+          WEB_APP: ${{ steps.deploy.outputs.webAppName }}
+        run: |
+          # The deployment token is read at run time with the deploy identity's rights and never stored.
+          token="$(az staticwebapp secrets list --name "$WEB_APP" --resource-group "$AZURE_RESOURCE_GROUP" --query properties.apiKey -o tsv)"
+          echo "::add-mask::$token"
+          npx --yes "@azure/static-web-apps-cli@${SWA_CLI_VERSION}" deploy src/web/dist --deployment-token "$token" --env production
+      - name: Smoke test the web front door
+        # An anonymous request must be sent to GitHub sign-in, not served: the invited-users-only stopgap holds.
+        env:
+          WEB_HOST: ${{ steps.deploy.outputs.webDefaultHostname }}
+        run: |
+          for i in $(seq 1 6); do
+            headers="$(curl -sS -o /dev/null -D - --max-time 30 "https://${WEB_HOST}/" || true)"
+            code="$(printf '%s' "$headers" | head -1 | awk '{print $2}')"
+            if [ "$code" = "302" ] && printf '%s' "$headers" | grep -qi "location: .*/.auth/login/github"; then
+              echo "Front door locked: anonymous GET / -> 302 to GitHub sign-in"; exit 0
+            fi
+            echo "attempt $i: HTTP ${code:-none}"; sleep 10
+          done
+          echo "::error::The web front door did not redirect anonymous visitors to sign-in"; exit 1
+      - name: Summary
+        run: |
+          {
+            echo "## ${ENVIRONMENT_NAME}"
+            echo
+            echo "- Commit: \`${HEAD_SHA}\`, images \`${{ inputs.image_tag }}\`, API revision \`${{ steps.rollout.outputs.revision }}\` (previous \`${{ steps.rollout.outputs.previous_revision }}\`)"
+            echo "- API: https://${{ steps.deploy.outputs.apiFqdn }} (IP allow-list, ADR 0008); smoke test passed"
+            echo "- Web: https://${{ steps.deploy.outputs.webDefaultHostname }} (invited users only); front door locked"
+            echo "- SQL: ${{ steps.deploy.outputs.sqlServerFqdn }} / ${{ steps.deploy.outputs.sqlDatabaseName }}, migrated"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Roll back (runs only when a step after the rollout failed)
+        # Traffic returns to the revision that was serving before this run, in seconds, as ADR 0021 decided. Both
+        # apps are then returned to their previous images so the template, the newest revision and the traffic all
+        # agree again, and the failed revision is deactivated so it costs nothing. The database stays as the
+        # migration left it: the expand-first rule is what makes that safe. The run stays red.
+        if: failure() && steps.rollout.outcome == 'success' && steps.rollout.outputs.previous_revision != ''
+        env:
+          REVISION: ${{ steps.rollout.outputs.revision }}
+          PREVIOUS_REVISION: ${{ steps.rollout.outputs.previous_revision }}
+        run: |
+          echo "::warning::Rolling ${API_APP} back to revision ${PREVIOUS_REVISION}"
+          az containerapp ingress traffic set --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --revision-weight "${PREVIOUS_REVISION}=100" -o none
+          echo "Traffic is on ${PREVIOUS_REVISION}"
+          az containerapp update --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --image "$PREVIOUS_API_IMAGE" -o none
+          az containerapp update --name "$WORKER_APP" --resource-group "$AZURE_RESOURCE_GROUP" --image "$PREVIOUS_WORKER_IMAGE" -o none
+          az containerapp revision deactivate --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" -o none || true
+          {
+            echo "## ${ENVIRONMENT_NAME}: rolled back"
+            echo
+            echo "- Revision \`${REVISION}\` failed its checks; traffic is back on \`${PREVIOUS_REVISION}\` and both apps run their previous images."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::Deployment of ${HEAD_SHA::7} to ${ENVIRONMENT_NAME} failed and was rolled back"
+      - name: Close the API allow-list to this runner
+        if: always() && steps.allow.outcome == 'success'
+        run: |
+          az containerapp ingress access-restriction remove --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --rule-name "$RUN_RULE" -o none
+      - name: Close the SQL firewall to this runner
+        # Runs whether the job passed, failed or was cancelled, as long as the rule was created.
+        if: always() && steps.firewall.outcome == 'success'
+        env:
+          SQL_SERVER: ${{ steps.deploy.outputs.sqlServerFqdn }}
+        run: |
+          az sql server firewall-rule delete --resource-group "$AZURE_RESOURCE_GROUP" --server "${SQL_SERVER%%.*}" \
+            --name "$RUN_RULE" -o none
