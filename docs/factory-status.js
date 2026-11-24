@@ -2,7 +2,7 @@
 // Status vocabulary: done | active | manual | planned. Planned items carry the phase that builds them.
 // Update this file in the same pull request as the change it describes.
 window.FACTORY = {
-  asOf: "13 October 2026, Phase 2 closed after the drill; Phase 3 deploy path in brief",
+  asOf: "24 November 2026, staging deployed end to end by the pipeline (Deploy run 10); Phase 3 build 3 next",
   phases: [
   { n: 0, title: "Foundations", status: "done", exit: "A one-line change reaches main only through a reviewed pull request" },
   { n: 1, title: "Skeleton and CI", status: "done", exit: "A pull request with a failing test or lint error cannot merge" },
@@ -57,11 +57,11 @@ window.FACTORY = {
       { t: "CycloneDX SBOM artifact (.NET and npm)", status: "active" },
     ],
     next: { gate: "G3", label: "Alex reviews and merges", status: "done", detail: "pull request required on main; 1 approval in phase 4" } },
-  { num: "Stage 5", name: "Staging", status: "planned", phase: 3,
+  { num: "Stage 5", name: "Staging", status: "active", phase: 3,
     agent: { who: "Release agent", what: "writes release notes after the deploy", status: "planned", phase: 4 },
     checks: [
-      { t: "Container images built on every pull request, published by Deploy after CI passes on main", status: "active" },
-      { t: "Deploy staging after CI on main (Bicep + OIDC, migrations, web upload)", status: "active" },
+      { t: "Container images built on every pull request, published by Deploy after CI passes on main", status: "done" },
+      { t: "Deploy staging after CI on main (Bicep + OIDC, migrations, web upload)", status: "done", note: "first green run 24 November 2026" },
       { t: "Playwright end-to-end", status: "planned", phase: 3 },
       { t: "OWASP ZAP baseline", status: "planned", phase: 3 },
       { t: "Accessibility checks", status: "planned", phase: 3 },
@@ -98,7 +98,7 @@ window.FACTORY = {
   { t: "Bounded runs", how: "Turn limit, job timeout and concurrency group on every agent workflow", status: "planned", phase: 4 },
   { t: "Traceability", how: "Pull request template links issue, spec, plan and run log", status: "done" },
   { t: "Tests are the contract", how: "80% per project enforced in CI; reviewer flags deleted or loosened tests in phase 4", status: "active" },
-  { t: "No stored cloud credentials", how: "OpenID Connect to Azure; Key Vault via managed identity", status: "active" },
+  { t: "No stored cloud credentials", how: "OpenID Connect to Azure; Key Vault via managed identity", status: "done", note: "proven by the staging deploy" },
   { t: "Book text is untrusted", how: "Separated from instructions; model output never triggers an action unchecked", status: "planned", phase: 5 },
   { t: "Spend is capped", how: "£20 a month on images, £5 per book; Claude key with a spend limit", status: "planned", phase: 4 },
 ],
