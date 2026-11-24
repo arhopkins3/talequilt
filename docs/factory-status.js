@@ -2,7 +2,7 @@
 // Status vocabulary: done | active | manual | planned. Planned items carry the phase that builds them.
 // Update this file in the same pull request as the change it describes.
 window.FACTORY = {
-  asOf: "24 November 2026, staging deployed end to end by the pipeline (Deploy run 10); Phase 3 build 3 next",
+  asOf: "24 November 2026, production job behind G4 with smoke test and rollback in review (build 3a); staging tests (3b) next",
   phases: [
   { n: 0, title: "Foundations", status: "done", exit: "A one-line change reaches main only through a reviewed pull request" },
   { n: 1, title: "Skeleton and CI", status: "done", exit: "A pull request with a failing test or lint error cannot merge" },
@@ -68,13 +68,14 @@ window.FACTORY = {
       { t: "AI evals", status: "planned", phase: 6 },
     ],
     next: { auto: "no gate: staging green" } },
-  { num: "Stage 6", name: "Production", status: "planned", phase: 3,
+  { num: "Stage 6", name: "Production", status: "active", phase: 3,
     agent: { who: "Release agent", what: "prepares the release summary and rollback steps", status: "planned", phase: 4 },
     checks: [
-      { t: "Smoke tests after deploy", status: "planned", phase: 3 },
-      { t: "Automatic rollback", status: "planned", phase: 3 },
+      { t: "Same deploy as staging (one reusable workflow), after Alex approves at G4", status: "active", note: "build 3a; first production run pending" },
+      { t: "Smoke tests after deploy (API health from outside through a per-run allow-list entry; web front door locked)", status: "active" },
+      { t: "Automatic rollback (traffic back to the previous API revision, both apps to their previous images)", status: "active" },
     ],
-    next: { gate: "G4", label: "Alex approves the deployment", status: "planned", phase: 3, detail: "production environment, phase 3" } },
+    next: { gate: "G4", label: "Alex approves the deployment", status: "manual", detail: "required reviewer on the production environment" } },
   { num: "Stage 7", name: "Operate", status: "planned", phase: 8,
     agent: { who: "Triage agent", what: "turns alerts and failed runs into issues with a diagnosis", status: "planned", phase: 4 },
     checks: [
