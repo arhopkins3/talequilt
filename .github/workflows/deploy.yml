@@ -206,6 +206,27 @@ jobs:
             sleep 10
           done
           echo "::error::API revision $REVISION did not become healthy in five minutes"; exit 1
+      - name: Explain an unhealthy revision (runs only when the wait above failed)
+        # Puts what Azure knows into the job log, so the cause is in the run and nobody has to sign in to look:
+        # the revision's running-state details, the replicas, and the platform (system) and application (console)
+        # logs for the revision.
+        if: failure() && steps.rollout.outcome == 'success'
+        env:
+          REVISION: ${{ steps.rollout.outputs.revision }}
+        run: |
+          echo "::group::Revision"
+          az containerapp revision show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" \
+            --query "{running:properties.runningState,details:properties.runningStateDetails,health:properties.healthState,replicas:properties.replicas,image:properties.template.containers[0].image}" -o json || true
+          echo "::endgroup::"
+          echo "::group::Replicas"
+          az containerapp replica list --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" -o json || true
+          echo "::endgroup::"
+          echo "::group::System log (platform events: pulls, probes, restarts)"
+          az containerapp logs show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" --type system --tail 100 || true
+          echo "::endgroup::"
+          echo "::group::Console log (what the API wrote)"
+          az containerapp logs show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" --type console --tail 100 || true
+          echo "::endgroup::"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
