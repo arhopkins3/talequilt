@@ -67,7 +67,9 @@ module logs 'modules/logs.bicep' = {
 module storage 'modules/storage.bicep' = {
   name: 'storage'
   params: {
-    name: toLower(replace('tq${environmentName}${uniqueString(resourceGroup().id)}', '-', ''))
+    // Storage account names are 3 to 24 characters. 'tq' + 'production' + the 13-character unique suffix is 25,
+    // so the name is cut to 24; staging's is 22 and unchanged, so its account is not replaced.
+    name: take(toLower(replace('tq${environmentName}${uniqueString(resourceGroup().id)}', '-', '')), 24)
     location: location
     tags: tags
     appIdentityPrincipalId: appIdentityPrincipalId
