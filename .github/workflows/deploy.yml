@@ -56,7 +56,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.HEAD_SHA }}
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
       - id: tag
@@ -106,7 +106,7 @@ jobs:
         # The ADR 0008 stopgap: an empty allow-list would make the API public before sign-in exists.
         run: |
           if [ -z "${ALLOWED_IP_RANGES// }" ]; then echo "::error::ALLOWED_IP_RANGES is empty; the API would be public (ADR 0008)"; exit 1; fi
-      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2.3.1
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -151,7 +151,7 @@ jobs:
             v="$(python3 -c "import json,sys; print(json.load(open('outputs.json'))[sys.argv[1]]['value'])" "$k")"
             echo "$k=$v" >> "$GITHUB_OUTPUT"
           done
-      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           global-json-file: global.json
       - name: Build the migration bundle
@@ -206,6 +206,27 @@ jobs:
             sleep 10
           done
           echo "::error::API revision $REVISION did not become healthy in five minutes"; exit 1
+      - name: Explain an unhealthy revision (runs only when the wait above failed)
+        # Puts what Azure knows into the job log, so the cause is in the run and nobody has to sign in to look:
+        # the revision's running-state details, the replicas, and the platform (system) and application (console)
+        # logs for the revision.
+        if: failure() && steps.rollout.outcome == 'success'
+        env:
+          REVISION: ${{ steps.rollout.outputs.revision }}
+        run: |
+          echo "::group::Revision"
+          az containerapp revision show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" \
+            --query "{running:properties.runningState,details:properties.runningStateDetails,health:properties.healthState,replicas:properties.replicas,image:properties.template.containers[0].image}" -o json || true
+          echo "::endgroup::"
+          echo "::group::Replicas"
+          az containerapp replica list --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" -o json || true
+          echo "::endgroup::"
+          echo "::group::System log (platform events: pulls, probes, restarts)"
+          az containerapp logs show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" --type system --tail 100 || true
+          echo "::endgroup::"
+          echo "::group::Console log (what the API wrote)"
+          az containerapp logs show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --revision "$REVISION" --type console --tail 100 || true
+          echo "::endgroup::"
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24

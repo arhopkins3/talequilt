@@ -80,6 +80,9 @@ resource databaseAuditing 'Microsoft.Sql/servers/databases/auditingSettings@2023
   }
 }
 
+// The four security resources below all write the server's security alert policy behind the scenes. Deployed in
+// parallel they collide (ServerSecurityAlertPolicyInProgress, seen on the first staging deploy), so they are
+// chained with dependsOn and apply one after another.
 resource securityAlerts 'Microsoft.Sql/servers/securityAlertPolicies@2023-08-01-preview' = {
   parent: server
   name: 'Default'
@@ -102,6 +105,7 @@ resource databaseSecurityAlerts 'Microsoft.Sql/servers/databases/securityAlertPo
     emailAddresses: [ alertEmail ]
     retentionDays: 90
   }
+  dependsOn: [ securityAlerts ]
 }
 
 // checkov:skip=CKV_AZURE_23: Reference to the existing master database so audit events can be routed to Log Analytics; not a database this template creates.
@@ -124,12 +128,14 @@ resource threatProtection 'Microsoft.Sql/servers/advancedThreatProtectionSetting
   parent: server
   name: 'Default'
   properties: { state: 'Enabled' }
+  dependsOn: [ databaseSecurityAlerts ]
 }
 
 resource vulnerabilityAssessment 'Microsoft.Sql/servers/sqlVulnerabilityAssessments@2023-08-01-preview' = {
   parent: server
   name: 'default'
   properties: { state: 'Enabled' }
+  dependsOn: [ threatProtection ]
 }
 
 output serverFqdn string = server.properties.fullyQualifiedDomainName
