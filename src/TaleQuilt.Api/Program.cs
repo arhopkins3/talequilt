@@ -13,7 +13,14 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<TaleQuiltDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("TaleQuilt")));
 builder.Services.AddHealthChecks().AddDbContextCheck<TaleQuiltDbContext>("database");
-builder.Services.AddOpenApi();
+// The public product name (ADR 0022) is configuration, read here for the OpenAPI document's title and later for
+// the PDF's metadata; the project name, TaleQuilt, stays in code and resources.
+var productName = builder.Configuration["Product:Name"] is { Length: > 0 } configured ? configured : "Yarnspun";
+builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
+{
+    document.Info.Title = $"{productName} API";
+    return Task.CompletedTask;
+}));
 builder.Services.AddProblemDetails();
 
 // In Azure the web app is served from Static Web Apps on another hostname (ADR 0021), so the browser's calls are

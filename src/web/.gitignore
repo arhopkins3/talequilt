@@ -5,3 +5,5 @@ coverage
 *.tsbuildinfo
 playwright-report
 test-results
+# The committed .env holds the public product name default (ADR 0022); the root rule hides .env files by default.
+!.env

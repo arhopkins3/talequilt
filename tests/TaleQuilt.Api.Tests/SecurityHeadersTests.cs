@@ -67,5 +67,6 @@ public sealed class SecurityHeadersTests(ApiFixture fixture) : IClassFixture<Api
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
         body.ShouldContain("\"/api/books\"");
+        body.ShouldContain("\"title\": \"Yarnspun API\"");
     }
 }

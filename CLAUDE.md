@@ -4,7 +4,7 @@ Project standards for every agent and person working in this repository. Keep th
 
 ## What this is
 
-TaleQuilt: a React + ASP.NET Core + Azure app that turns a manuscript into an illustrated, print-ready PDF. It is built through an agentic delivery pipeline with human gates. The pipeline is the primary deliverable. Read `docs/operating-model.md` before changing anything about how work flows.
+TaleQuilt: a React + ASP.NET Core + Azure app that turns a manuscript into an illustrated, print-ready PDF. TaleQuilt is the project name, used in code, resources and these documents; the product users see is called Yarnspun, set by configuration (ADR 0022). It is built through an agentic delivery pipeline with human gates. The pipeline is the primary deliverable. Read `docs/operating-model.md` before changing anything about how work flows.
 
 ## Rules that are never relaxed
 

@@ -10,7 +10,7 @@ async function openWhenHealthy(page: Page) {
   await expect(page.getByRole("status")).toHaveText(/API: healthy/, coldStart);
 }
 
-test.describe("TaleQuilt web app against a live API", () => {
+test.describe("The web app against a live API", () => {
   test("reports the API healthy and shows the books list", async ({ page }) => {
     await openWhenHealthy(page);
     await expect(page.getByRole("heading", { name: "Books" })).toBeVisible();

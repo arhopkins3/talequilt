@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createBook, getHealth, listBooks, type Book, type Health } from "./api";
+import { productName } from "./product";
 
 /**
  * How long to keep probing before giving a verdict. Both environments scale down when idle (the API to zero
@@ -92,7 +93,7 @@ export function App({ retry = defaultRetry }: { retry?: HealthRetry } = {}) {
 
   return (
     <main>
-      <h1>TaleQuilt</h1>
+      <h1>{productName}</h1>
       <p className="status" data-state={health} role="status">
         API: {healthText[health]}
       </p>
