@@ -13,12 +13,13 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<TaleQuiltDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("TaleQuilt")));
 builder.Services.AddHealthChecks().AddDbContextCheck<TaleQuiltDbContext>("database");
-// The public product name (ADR 0022) is configuration, read here for the OpenAPI document's title and later for
-// the PDF's metadata; the project name, TaleQuilt, stays in code and resources.
-var productName = builder.Configuration["Product:Name"] is { Length: > 0 } configured ? configured : "Yarnspun";
-builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
+// The public product name (ADR 0022) is configuration, read for the OpenAPI document's title here and for the
+// PDF's metadata later; the project name, TaleQuilt, stays in code and resources. It is read when the document is
+// built, not when the host is, so configuration added by a test host or an environment is honoured.
+builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, context, _) =>
 {
-    document.Info.Title = $"{productName} API";
+    var configured = context.ApplicationServices.GetRequiredService<IConfiguration>()["Product:Name"];
+    document.Info.Title = $"{(string.IsNullOrWhiteSpace(configured) ? "Yarnspun" : configured)} API";
     return Task.CompletedTask;
 }));
 builder.Services.AddProblemDetails();
