@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.Extensions.Configuration;
 using Shouldly;
 
 namespace TaleQuilt.Api.Tests;
@@ -56,6 +57,21 @@ public sealed class SecurityHeadersTests(ApiFixture fixture) : IClassFixture<Api
         response.Headers.GetValues("X-Content-Type-Options").ShouldBe(["nosniff"]);
     }
 
+    [Theory]
+    [InlineData("", "Yarnspun API")]
+    [InlineData("Other Name", "Other Name API")]
+    public async Task The_openapi_title_follows_the_configured_product_name_with_a_fallback(string configured, string expected)
+    {
+        // ADR 0022: the product name is configuration; a blank value falls back to the default.
+        using var client = fixture.WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, config) =>
+            config.AddInMemoryCollection([new KeyValuePair<string, string?>("Product:Name", configured)]))).CreateClient();
+
+        using var response = await client.GetAsync(new Uri("/openapi/v1.json", UriKind.Relative), TestContext.Current.CancellationToken);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        body.ShouldContain($"\"title\": \"{expected}\"");
+    }
+
     [Fact]
     public async Task The_openapi_document_describes_the_book_routes()
     {
@@ -67,5 +83,6 @@ public sealed class SecurityHeadersTests(ApiFixture fixture) : IClassFixture<Api
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
         body.ShouldContain("\"/api/books\"");
+        body.ShouldContain("\"title\": \"Yarnspun API\"");
     }
 }

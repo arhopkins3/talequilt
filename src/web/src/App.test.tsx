@@ -32,6 +32,7 @@ describe("App", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent("API: healthy");
     expect(screen.getByText(/No books yet/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Yarnspun");
   });
 
   it("lists books and adds a new one", async () => {
