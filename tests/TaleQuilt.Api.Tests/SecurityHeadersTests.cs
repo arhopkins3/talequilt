@@ -42,6 +42,21 @@ public sealed class SecurityHeadersTests(ApiFixture fixture) : IClassFixture<Api
     }
 
     [Fact]
+    public async Task A_request_the_framework_cannot_read_is_the_callers_error_not_a_500()
+    {
+        // ZAP's rehearsal sent this content type and got a 500; a malformed request is a 4xx.
+        using var client = fixture.CreateClient();
+        using var content = new StringContent("{\"title\":\"x\"}");
+        content.Headers.Remove("Content-Type");
+        content.Headers.TryAddWithoutValidation("Content-Type", "application/json,multipart/form-data; boundary=x").ShouldBeTrue();
+
+        using var response = await client.PostAsync(new Uri("/api/books", UriKind.Relative), content, TestContext.Current.CancellationToken);
+
+        ((int)response.StatusCode).ShouldBeInRange(400, 499);
+        response.Headers.GetValues("X-Content-Type-Options").ShouldBe(["nosniff"]);
+    }
+
+    [Fact]
     public async Task The_openapi_document_describes_the_book_routes()
     {
         using var client = fixture.CreateClient();

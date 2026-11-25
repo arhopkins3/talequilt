@@ -12,7 +12,7 @@
 40024	FAIL	SQL injection (SQLite)
 40027	FAIL	SQL injection (MsSQL)
 40012	FAIL	Cross-site scripting (reflected)
-40014	FAIL	Cross-site scripting (persistent)
+40014	WARN	Cross-site scripting (persistent): reported, not failed. The API echoes book text back in JSON only, with nosniff and a CSP that forbids rendering, so the stored text is a weakness for a renderer, not for this API; the web app escapes it (React). A title with a script tag is legitimate book text and must round-trip unchanged.
 40016	FAIL	Cross-site scripting (persistent, prime)
 40017	FAIL	Cross-site scripting (persistent, spider)
 90019	FAIL	Server-side code injection

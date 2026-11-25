@@ -38,7 +38,13 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
     await scope.ServiceProvider.GetRequiredService<TaleQuiltDbContext>().Database.MigrateAsync().ConfigureAwait(false);
 }
 
-app.UseExceptionHandler();
+app.UseExceptionHandler(new ExceptionHandlerOptions
+{
+    // A request the framework could not read (a malformed body or content type) is the caller's fault and
+    // carries its own status code, 400 or 415; only everything else is a 500. Found by the ZAP rehearsal.
+    StatusCodeSelector = static exception =>
+        exception is BadHttpRequestException bad ? bad.StatusCode : StatusCodes.Status500InternalServerError,
+});
 app.UseStatusCodePages();
 app.UseSecurityHeaders();
 app.UseCors();
