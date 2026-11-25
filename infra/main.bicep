@@ -47,6 +47,9 @@ param budgetAlertEmail string
 @description('Monthly budget in GBP; alerts fire at 50 and 100 percent.')
 param monthlyBudgetGbp int = 20
 
+@description('Budget start date (first of a month). The existing budget\'s date, or the first of the current month for a new one; supplied by the Deploy workflow, because Azure rejects both a new budget starting in an earlier month and a change to an existing start date.')
+param budgetStartDate string
+
 @description('Minimum replicas for the API. 0 scales to zero when idle (staging); 1 keeps production warm.')
 @minValue(0)
 @maxValue(1)
@@ -129,7 +132,7 @@ module web 'modules/staticwebapp.bicep' = {
 
 module budget 'modules/budget.bicep' = {
   name: 'budget'
-  params: { name: '${prefix}-budget', amountGbp: monthlyBudgetGbp, alertEmail: budgetAlertEmail }
+  params: { name: '${prefix}-budget', amountGbp: monthlyBudgetGbp, alertEmail: budgetAlertEmail, startDate: budgetStartDate }
 }
 
 output apiFqdn string = apps.outputs.apiFqdn

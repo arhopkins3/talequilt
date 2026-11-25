@@ -2,8 +2,8 @@
 param name string
 param amountGbp int
 param alertEmail string
-@description('First day of the current month. Azure refuses a new monthly budget whose start date is in an earlier month, so the date cannot be fixed in the template; the default is computed when the deployment starts.')
-param startDate string = utcNow('yyyy-MM-01')
+@description('Start date, first of a month. A new budget must start in the current month and an existing budget\'s start date cannot change, so the Deploy workflow passes the existing value when there is one and the first of the current month when there is not.')
+param startDate string
 
 resource budget 'Microsoft.Consumption/budgets@2023-11-01' = {
   name: name

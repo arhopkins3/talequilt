@@ -58,6 +58,7 @@ jobs:
           API_IMAGE: ghcr.io/arhopkins3/talequilt-api:placeholder
           WORKER_IMAGE: ghcr.io/arhopkins3/talequilt-worker:placeholder
           BUDGET_ALERT_EMAIL: placeholder@example.com
+          BUDGET_START_DATE: 2026-01-01
         run: |
           for p in staging production; do
             ./bicep build-params "infra/parameters/$p.bicepparam" --stdout > /dev/null
