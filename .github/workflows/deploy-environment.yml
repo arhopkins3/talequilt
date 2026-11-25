@@ -100,11 +100,16 @@ jobs:
           runner_ip="$(curl -fsS https://api.ipify.org || curl -fsS https://ifconfig.me/ip)"
           [[ "$runner_ip" =~ ^[0-9.]+$ ]] || { echo "::error::Could not determine the runner's public address"; exit 1; }
           echo "RUNNER_IP=$runner_ip" >> "$GITHUB_ENV"
-      - name: Keep the running images for the infrastructure deploy
+      - name: Keep the running images and the budget's start date for the infrastructure deploy
         # The Bicep is deployed with the images already running (none on the first deployment), so no new revision
         # starts before the migrations below. The new images roll out in a later step. The same values are what a
-        # rollback returns to.
+        # rollback returns to. The budget keeps its existing start date, because Azure refuses to change it; a new
+        # budget starts on the first of the current month, because Azure refuses an earlier one.
         run: |
+          budget_start="$(az rest --method get --url "https://management.azure.com/subscriptions/${{ vars.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${AZURE_RESOURCE_GROUP}/providers/Microsoft.Consumption/budgets/talequilt-${ENVIRONMENT_NAME}-budget?api-version=2023-11-01" \
+            --query properties.timePeriod.startDate -o tsv 2>/dev/null || true)"
+          echo "BUDGET_START_DATE=${budget_start:-$(date -u +%Y-%m-01)}" >> "$GITHUB_ENV"
+          echo "Budget start date ${budget_start:-$(date -u +%Y-%m-01) (new budget)}"
           current_api="$(az containerapp show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
             --query 'properties.template.containers[0].image' -o tsv 2>/dev/null || true)"
           current_worker="$(az containerapp show --name "$WORKER_APP" --resource-group "$AZURE_RESOURCE_GROUP" \

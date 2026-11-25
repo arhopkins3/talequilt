@@ -12,5 +12,6 @@ param allowedIpRanges = split(readEnvironmentVariable('ALLOWED_IP_RANGES'), ',')
 param apiImage = readEnvironmentVariable('API_IMAGE')
 param workerImage = readEnvironmentVariable('WORKER_IMAGE')
 param budgetAlertEmail = readEnvironmentVariable('BUDGET_ALERT_EMAIL')
+param budgetStartDate = readEnvironmentVariable('BUDGET_START_DATE')
 param monthlyBudgetGbp = 20
 param apiMinReplicas = 1
