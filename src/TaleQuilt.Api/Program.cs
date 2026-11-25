@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Cors.Infrastructure;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
 using TaleQuilt.Api;
 using TaleQuilt.Api.Endpoints;
@@ -61,7 +62,19 @@ app.UseCors();
 // document holds nothing secret, and the ZAP scan in the Deploy workflow reads it to learn the routes to test.
 app.MapOpenApi();
 
-app.MapHealthChecks("/api/health");
+// The health answer is JSON, like every other answer: the overall status and one entry per check.
+app.MapHealthChecks("/api/health", new HealthCheckOptions
+{
+    ResponseWriter = static (context, report) =>
+    {
+        context.Response.ContentType = "application/json; charset=utf-8";
+        return context.Response.WriteAsJsonAsync(new
+        {
+            status = report.Status.ToString(),
+            checks = report.Entries.Select(e => new { name = e.Key, status = e.Value.Status.ToString() }),
+        });
+    },
+});
 app.MapBookEndpoints();
 
 await app.RunAsync().ConfigureAwait(false);

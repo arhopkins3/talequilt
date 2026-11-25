@@ -15,7 +15,10 @@ public sealed class BooksEndpointTests(ApiFixture fixture) : IClassFixture<ApiFi
         var response = await _client.GetAsync(new Uri("/api/health", UriKind.Relative), TestContext.Current.CancellationToken);
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).ShouldBe("Healthy");
+        response.Content.Headers.ContentType.ShouldNotBeNull().MediaType.ShouldBe("application/json");
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        body.ShouldContain("\"status\":\"Healthy\"");
+        body.ShouldContain("\"name\":\"database\"");
     }
 
     [Fact]

@@ -33,8 +33,17 @@
 10020	FAIL	Anti-clickjacking header missing
 10035	FAIL	Strict-Transport-Security header missing
 10038	FAIL	Content-Security-Policy header missing
+90004	FAIL	Site isolation headers missing (Cross-Origin-Resource-Policy is set on every answer)
 #
-# Not applicable to a JSON API with no cookies or HTML; reported but not failed.
+# Reported by the first staging scans (25 November 2026) and judged: by design, so not reported again.
+10049	IGNORE	Non-storable content: every answer carries Cache-Control no-store on purpose (SecurityHeaders.cs)
+10015	IGNORE	Re-examine cache-control directives: the same header, same reason
+10104	IGNORE	User agent fuzzer: informational; the API does not vary its answers by browser identity
+100001	IGNORE	Unexpected content type: the health answer is JSON now, and errors are application/problem+json (RFC 9457), which the rule does not expect but is the standard
+# 100000 covers both "client error response code" (informational: the scan's malformed requests refused with a 4xx)
+# and "server error response code" (a 500, which found a real bug in the rehearsal). It stays WARN so a 5xx is seen.
+#
+# Not applicable to a JSON API with no cookies or HTML; not reported.
 10054	IGNORE	Cookie without SameSite attribute: the API sets no cookies
 10010	IGNORE	Cookie without HttpOnly flag: the API sets no cookies
 10011	IGNORE	Cookie without Secure flag: the API sets no cookies
