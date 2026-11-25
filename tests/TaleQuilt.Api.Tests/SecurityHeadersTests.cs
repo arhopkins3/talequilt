@@ -25,6 +25,7 @@ public sealed class SecurityHeadersTests(ApiFixture fixture) : IClassFixture<Api
         response.Headers.GetValues("X-Frame-Options").ShouldBe(["DENY"]);
         response.Headers.GetValues("Content-Security-Policy").ShouldBe(["default-src 'none'; frame-ancestors 'none'"]);
         response.Headers.GetValues("Referrer-Policy").ShouldBe(["no-referrer"]);
+        response.Headers.GetValues("Cross-Origin-Resource-Policy").ShouldBe(["same-origin"]);
         response.Headers.CacheControl.ShouldNotBeNull().NoStore.ShouldBeTrue();
         response.Headers.Contains("X-Powered-By").ShouldBeFalse();
     }

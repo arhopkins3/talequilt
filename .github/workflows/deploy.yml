@@ -99,6 +99,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
+      issues: write # eng/zap-issues.py opens an issue per new ZAP alert and closes the ones that have gone
     env:
       API_FQDN: ${{ needs.staging.outputs.api_fqdn }}
       API_APP: talequilt-staging-api
@@ -176,6 +177,14 @@ jobs:
             zap-out/zap-report.md
           if-no-files-found: ignore
           retention-days: 14
+      - name: Open an issue for each new ZAP alert, close the ones that have gone
+        # An entry in .zap/api-rules.tsv means a person judged the alert, so a listed WARN or IGNORE opens nothing;
+        # an unlisted alert of Low risk or above, or a FAIL, gets one issue per plugin id, labelled zap, and the issue
+        # closes when the alert goes. Without this a new warning sits unread in the artifact.
+        if: always() && hashFiles('zap-out/zap-report.json') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 eng/zap-issues.py zap-out/zap-report.json .zap/api-rules.tsv "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
       - name: Summary
         if: always()
         run: |

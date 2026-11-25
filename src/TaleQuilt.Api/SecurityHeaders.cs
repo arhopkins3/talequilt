@@ -17,6 +17,9 @@ public static class SecurityHeaders
             headers.XFrameOptions = "DENY";
             headers.ContentSecurityPolicy = "default-src 'none'; frame-ancestors 'none'";
             headers["Referrer-Policy"] = "no-referrer";
+            // No other site may embed an answer as a script, image or frame. The web app's own calls use CORS, which
+            // this header does not restrict.
+            headers["Cross-Origin-Resource-Policy"] = "same-origin";
             headers.CacheControl = "no-store";
             if (context.Request.IsHttps)
             {

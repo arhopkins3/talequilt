@@ -63,7 +63,7 @@ window.FACTORY = {
       { t: "Container images built on every pull request, published by Deploy after CI passes on main", status: "done" },
       { t: "Deploy staging after CI on main (Bicep + OIDC, migrations, web upload)", status: "done", note: "first green run 24 November 2026" },
       { t: "Playwright end-to-end against the staging API, before promotion is offered", status: "active", note: "build 3b" },
-      { t: "OWASP ZAP API scan of the staging API (injection and disclosure rules fail the run)", status: "active", note: "build 3b" },
+      { t: "OWASP ZAP API scan of the staging API (injection and disclosure rules fail the run; other new alerts open an issue)", status: "active", note: "build 3b" },
       { t: "Accessibility checks (axe, WCAG 2.1 AA; serious or critical findings fail the run)", status: "active", note: "build 3b" },
       { t: "AI evals", status: "planned", phase: 6 },
     ],
