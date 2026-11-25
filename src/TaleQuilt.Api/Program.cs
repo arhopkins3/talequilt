@@ -1,9 +1,13 @@
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.EntityFrameworkCore;
+using TaleQuilt.Api;
 using TaleQuilt.Api.Endpoints;
 using TaleQuilt.Core.Data;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// No Server header: it names the web server and its version to anyone who asks, and nothing needs it.
+builder.WebHost.ConfigureKestrel(static options => options.AddServerHeader = false);
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<TaleQuiltDbContext>(options =>
@@ -36,11 +40,12 @@ if (app.Configuration.GetValue<bool>("Database:MigrateOnStartup"))
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+app.UseSecurityHeaders();
 app.UseCors();
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
+
+// The OpenAPI document is served in every environment: the API sits behind an IP allow-list (ADR 0008), the
+// document holds nothing secret, and the ZAP scan in the Deploy workflow reads it to learn the routes to test.
+app.MapOpenApi();
 
 app.MapHealthChecks("/api/health");
 app.MapBookEndpoints();

@@ -27,6 +27,13 @@ on:
         description: The image tag the Publish images job pushed for that commit
         type: string
         required: true
+    outputs:
+      api_fqdn:
+        description: Hostname of the environment's API, for the suites that run against it
+        value: ${{ jobs.deploy.outputs.api_fqdn }}
+      web_hostname:
+        description: Hostname of the environment's web app
+        value: ${{ jobs.deploy.outputs.web_hostname }}
 
 permissions:
   contents: read
@@ -43,6 +50,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     environment: ${{ inputs.environment }}
+    outputs:
+      api_fqdn: ${{ steps.deploy.outputs.apiFqdn }}
+      web_hostname: ${{ steps.deploy.outputs.webDefaultHostname }}
     concurrency:
       # One deploy per environment at a time, never cancelled midway. A production job waiting at G4 holds only
       # the production group, so staging keeps deploying while Alex decides.

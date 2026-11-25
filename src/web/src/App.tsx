@@ -1,8 +1,49 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createBook, getHealth, listBooks, type Book, type Health } from "./api";
 
-export function App() {
-  const [health, setHealth] = useState<Health | "checking">("checking");
+/**
+ * How long to keep probing before giving a verdict. Both environments scale down when idle (the API to zero
+ * replicas in staging, the database to paused everywhere), so the first request after a quiet spell can take
+ * most of a minute. Showing "unhealthy" in that window was a false alarm twice in the first week.
+ */
+export interface HealthRetry {
+  attempts: number;
+  intervalMs: number;
+}
+
+const defaultRetry: HealthRetry = { attempts: 12, intervalMs: 5000 };
+
+type HealthState = Health | "checking" | "waking";
+
+const healthText: Record<HealthState, string> = {
+  checking: "checking…",
+  waking: "waking up… this can take a minute after a quiet spell",
+  healthy: "healthy",
+  unhealthy: "unhealthy (it answered, but its database check failed)",
+  forbidden: "not reachable from this address (it answers only allow-listed addresses)",
+  unreachable: "unreachable",
+};
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** Probes until the API is healthy, refuses this address, or the attempts run out. */
+async function settleHealth(
+  retry: HealthRetry,
+  onWaking: () => void,
+  isCancelled: () => boolean,
+): Promise<Health | null> {
+  for (let attempt = 1; ; attempt++) {
+    const health = await getHealth();
+    if (isCancelled()) return null;
+    if (health === "healthy" || health === "forbidden" || attempt >= retry.attempts) return health;
+    onWaking();
+    await wait(retry.intervalMs);
+    if (isCancelled()) return null;
+  }
+}
+
+export function App({ retry = defaultRetry }: { retry?: HealthRetry } = {}) {
+  const [health, setHealth] = useState<HealthState>("checking");
   const [books, setBooks] = useState<Book[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [title, setTitle] = useState("");
@@ -11,23 +52,28 @@ export function App() {
 
   useEffect(() => {
     let cancelled = false;
-    void getHealth().then((h) => {
-      if (!cancelled) setHealth(h);
-    });
-    void listBooks()
-      .then((b) => {
-        if (!cancelled) setBooks(b);
-      })
-      .catch((e: unknown) => {
+    const run = async () => {
+      const settled = await settleHealth(
+        retry,
+        () => setHealth("waking"),
+        () => cancelled,
+      );
+      if (settled === null) return;
+      setHealth(settled);
+      try {
+        const list = await listBooks();
+        if (!cancelled) setBooks(list);
+      } catch (e: unknown) {
         if (!cancelled) setError(e instanceof Error ? e.message : "Could not load books.");
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoaded(true);
-      });
+      }
+    };
+    void run();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [retry]);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
@@ -48,7 +94,7 @@ export function App() {
     <main>
       <h1>TaleQuilt</h1>
       <p className="status" data-state={health} role="status">
-        API: {health === "checking" ? "checking…" : health}
+        API: {healthText[health]}
       </p>
 
       <h2>Books</h2>

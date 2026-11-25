@@ -19,7 +19,12 @@ h1 {
 .status[data-state="healthy"] {
   color: #2b7a4b;
 }
-.status[data-state="unhealthy"] {
+.status[data-state="waking"] {
+  color: #8a5a00;
+}
+.status[data-state="unhealthy"],
+.status[data-state="forbidden"],
+.status[data-state="unreachable"] {
   color: #b3261e;
 }
 ul {

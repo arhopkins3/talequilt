@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { App } from "./App";
+import { App, type HealthRetry } from "./App";
+
+// Tests never wait for the real back-off: three quick probes stand in for the twelve slow ones.
+const fastRetry: HealthRetry = { attempts: 3, intervalMs: 0 };
 
 function mockFetch(routes: Record<string, (init?: RequestInit) => Response>) {
   const spy = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -25,7 +28,7 @@ describe("App", () => {
       "GET /api/books": () => json(200, []),
     });
 
-    render(<App />);
+    render(<App retry={fastRetry} />);
 
     expect(await screen.findByRole("status")).toHaveTextContent("API: healthy");
     expect(screen.getByText(/No books yet/)).toBeInTheDocument();
@@ -43,7 +46,7 @@ describe("App", () => {
       },
     });
 
-    render(<App />);
+    render(<App retry={fastRetry} />);
 
     expect(await screen.findByText("First")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Title"), "Second");
@@ -61,7 +64,7 @@ describe("App", () => {
       "POST /api/books": () => json(400, { errors: { title: ["A book needs a title."] } }),
     });
 
-    render(<App />);
+    render(<App retry={fastRetry} />);
     await screen.findByText(/No books yet/);
     await user.type(screen.getByLabelText("Title"), "x");
     await user.click(screen.getByRole("button", { name: "Add book" }));
@@ -71,10 +74,6 @@ describe("App", () => {
 
   it("keeps the form disabled until the list has loaded", async () => {
     let resolveList: (r: Response) => void = () => {};
-    mockFetch({
-      "GET /api/health": () => new Response("Healthy", { status: 200 }),
-      "GET /api/books": () => json(200, []),
-    });
     vi.stubGlobal(
       "fetch",
       vi.fn((input: RequestInfo | URL) => {
@@ -84,23 +83,77 @@ describe("App", () => {
       }),
     );
 
-    render(<App />);
+    render(<App retry={fastRetry} />);
 
+    expect(await screen.findByRole("status")).toHaveTextContent("API: healthy");
     expect(screen.getByText(/Loading books/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Add book" })).toBeDisabled();
     resolveList(json(200, []));
     expect(await screen.findByText(/No books yet/)).toBeInTheDocument();
   });
 
-  it("reports an unhealthy API and a failed list", async () => {
+  it("says the API is waking up while it retries, then reports it healthy", async () => {
+    let probes = 0;
     mockFetch({
-      "GET /api/health": () => new Response(null, { status: 503 }),
+      "GET /api/health": () =>
+        ++probes < 3
+          ? new Response(null, { status: 503 })
+          : new Response("Healthy", { status: 200 }),
+      "GET /api/books": () => json(200, []),
+    });
+
+    render(<App retry={{ attempts: 5, intervalMs: 10 }} />);
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("API: waking up"));
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("API: healthy"));
+    expect(probes).toBe(3);
+    expect(await screen.findByText(/No books yet/)).toBeInTheDocument();
+  });
+
+  it("reports an unhealthy API once the retries run out, and a failed list", async () => {
+    let probes = 0;
+    mockFetch({
+      "GET /api/health": () => {
+        probes++;
+        return new Response(null, { status: 503 });
+      },
       "GET /api/books": () => new Response(null, { status: 500 }),
     });
 
-    render(<App />);
+    render(<App retry={fastRetry} />);
 
     await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("API: unhealthy"));
+    expect(probes).toBe(fastRetry.attempts);
     expect(await screen.findByRole("alert")).toHaveTextContent("Request failed (500).");
+  });
+
+  it("stops retrying at once when the allow-list refuses this address", async () => {
+    let probes = 0;
+    mockFetch({
+      "GET /api/health": () => {
+        probes++;
+        return new Response(null, { status: 403 });
+      },
+      "GET /api/books": () => new Response(null, { status: 403 }),
+    });
+
+    render(<App retry={fastRetry} />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("status")).toHaveTextContent("API: not reachable from this address"),
+    );
+    expect(probes).toBe(1);
+  });
+
+  it("reports the API unreachable when nothing answers", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => Promise.reject(new TypeError("offline"))),
+    );
+
+    render(<App retry={fastRetry} />);
+
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent("API: unreachable"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("offline");
   });
 });

@@ -4,7 +4,13 @@ export interface Book {
   createdAt: string;
 }
 
-export type Health = "healthy" | "unhealthy";
+/**
+ * What a health probe found. "healthy" and "unhealthy" are the API's own verdicts (its database check passed or
+ * failed). "forbidden" means the API's allow-list refused this address (ADR 0008), which no amount of waiting
+ * changes. "unreachable" means no answer at all: the API is starting, the network is down, or the hostname is
+ * wrong.
+ */
+export type Health = "healthy" | "unhealthy" | "forbidden" | "unreachable";
 
 interface ValidationProblem {
   errors?: Record<string, string[]>;
@@ -39,9 +45,10 @@ async function parseProblem(response: Response): Promise<string> {
 export async function getHealth(fetcher: typeof fetch = fetch): Promise<Health> {
   try {
     const response = await fetcher(apiUrl("/api/health"));
-    return response.ok ? "healthy" : "unhealthy";
+    if (response.ok) return "healthy";
+    return response.status === 403 ? "forbidden" : "unhealthy";
   } catch {
-    return "unhealthy";
+    return "unreachable";
   }
 }
 

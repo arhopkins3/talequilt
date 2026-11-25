@@ -1,8 +1,9 @@
 # Deploy (ADR 0021). Runs after CI succeeds on main, or by hand from main. Publishes the container images for the
-# commit CI tested, deploys staging, then deploys production behind gate G4: the production job carries the
-# `production` GitHub environment, whose required reviewer is Alex, so it waits there until he approves. The two
-# deploys are the same reusable workflow (deploy-environment.yml) with a different environment name, so what runs in
-# production is exactly what ran in staging.
+# commit CI tested, deploys staging, runs the staging test suites (end-to-end, accessibility and a ZAP scan of the
+# API), then deploys production behind gate G4: the production job carries the `production` GitHub environment,
+# whose required reviewer is Alex, so it waits there until he approves, and it is offered only when the suites
+# passed. The two deploys are the same reusable workflow (deploy-environment.yml) with a different environment
+# name, so what runs in production is exactly what ran and was tested in staging.
 # Provenance: only a CI run for a push to this repository's main, or a manual run from main, may publish and deploy;
 # CI also runs for pull requests, including ones from forks, and those must never reach the registry or Azure.
 # Concurrency is per job, not per run: a production job waiting at G4 keeps its run in progress and would otherwise
@@ -83,12 +84,118 @@ jobs:
       head_sha: ${{ needs.images.outputs.head_sha }}
       image_tag: ${{ needs.images.outputs.tag }}
 
+  staging-tests:
+    # The suites that must pass before promotion is offered (ADR 0021): Playwright end-to-end and axe
+    # accessibility checks drive a local production build of the web app whose /api proxy points at the staging
+    # API, and a ZAP API scan reads the staging API's OpenAPI document and probes every route. The deployed web
+    # app itself is behind invited-user sign-in, which a test runner cannot complete, so the local build stands in
+    # for it; the deploy's own smoke tests cover the deployed front door. The runner reaches the API through a
+    # per-run allow-list entry, as the smoke test does. Reports are kept as artifacts whatever the outcome.
+    name: Staging tests
+    needs: [images, staging]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: staging
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      API_FQDN: ${{ needs.staging.outputs.api_fqdn }}
+      API_APP: talequilt-staging-api
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      RUN_RULE: github-tests-${{ github.run_id }}
+      # ZAP 2.17.0, pinned by digest for the same reason actions are pinned by SHA (ADR 0019).
+      ZAP_IMAGE: ghcr.io/zaproxy/zaproxy@sha256:9624669db72f54d86c4b46a7064518bd9bf79d8c61a4c31befa9923489f328af
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.images.outputs.head_sha }}
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Install the Container Apps CLI extension
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az extension add --name containerapp --upgrade -o none
+      - name: Find this runner's public address
+        run: |
+          runner_ip="$(curl -fsS https://api.ipify.org || curl -fsS https://ifconfig.me/ip)"
+          [[ "$runner_ip" =~ ^[0-9.]+$ ]] || { echo "::error::Could not determine the runner's public address"; exit 1; }
+          echo "RUNNER_IP=$runner_ip" >> "$GITHUB_ENV"
+      - name: Open the API allow-list to this runner for the suites
+        id: allow
+        run: |
+          az containerapp ingress access-restriction set --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --rule-name "$RUN_RULE" --ip-address "${RUNNER_IP}/32" --action Allow \
+            --description "GitHub runner for the staging test suites of run ${{ github.run_id }}; removed at the end of the job" -o none
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: src/web/package-lock.json
+      - name: Install the web app and a browser
+        working-directory: src/web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Build the web app for the suites (same-origin /api, proxied to the staging API)
+        working-directory: src/web
+        run: npm run build
+      - name: Playwright end-to-end and axe accessibility checks against the staging API
+        working-directory: src/web
+        env:
+          E2E_API_BASE_URL: https://${{ needs.staging.outputs.api_fqdn }}
+        run: npx playwright test
+      - name: Keep the Playwright report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: src/web/playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: ZAP API scan of the staging API
+        # Reads the OpenAPI document, then runs the passive and API-policy active rules against every route.
+        # Verdicts come from .zap/api-rules.tsv: FAIL blocks promotion, WARN is reported (-I), IGNORE is not.
+        # The scan writes to staging (it posts books), which is what staging is for.
+        run: |
+          mkdir -p zap-out && cp .zap/api-rules.tsv zap-out/ && chmod 777 zap-out
+          docker run --rm -v "$PWD/zap-out:/zap/wrk:rw" "$ZAP_IMAGE" zap-api-scan.py \
+            -t "https://${API_FQDN}/openapi/v1.json" -f openapi -c api-rules.tsv \
+            -r zap-report.html -J zap-report.json -w zap-report.md -I -T 10
+      - name: Keep the ZAP report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: zap-report
+          path: |
+            zap-out/zap-report.html
+            zap-out/zap-report.json
+            zap-out/zap-report.md
+          if-no-files-found: ignore
+          retention-days: 14
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Staging tests"
+            echo
+            echo "- Playwright and axe: see the playwright-report artifact"
+            if [ -f zap-out/zap-report.md ]; then echo; cat zap-out/zap-report.md; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Close the API allow-list to this runner
+        if: always() && steps.allow.outcome == 'success'
+        run: |
+          az containerapp ingress access-restriction remove --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --rule-name "$RUN_RULE" -o none
+
   production:
     # Gate G4: the `production` environment names Alex as required reviewer, so this job waits for his approval
-    # after staging has passed. Nothing an agent can do approves it. Build pull request 3b adds the staging test
-    # suites (Playwright, ZAP, axe) between staging and here.
+    # after staging has deployed and its test suites have passed. Nothing an agent can do approves it.
     name: Production
-    needs: [images, staging]
+    needs: [images, staging, staging-tests]
     permissions:
       contents: read
       id-token: write

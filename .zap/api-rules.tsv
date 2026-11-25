@@ -1,0 +1,40 @@
+# ZAP API scan policy for the staging API (ADR 0021, Phase 3 build item 3b).
+# One rule per line: <plugin id> <tab> IGNORE|WARN|FAIL <tab> note. Rules not listed stay at WARN, which the
+# Deploy workflow reports but does not fail on (-I); FAIL blocks promotion. Change a verdict only with a reason
+# here and a note in the pull request: this file is a gate (CLAUDE.md rule 2).
+#
+# Injection and code execution: the API takes book text, which is untrusted input (CLAUDE.md rule 6).
+40018	FAIL	SQL injection
+40019	FAIL	SQL injection (MySQL, time based)
+40020	FAIL	SQL injection (Hypersonic, time based)
+40021	FAIL	SQL injection (Oracle, time based)
+40022	FAIL	SQL injection (PostgreSQL, time based)
+40024	FAIL	SQL injection (SQLite)
+40027	FAIL	SQL injection (MsSQL)
+40012	FAIL	Cross-site scripting (reflected)
+40014	FAIL	Cross-site scripting (persistent)
+40016	FAIL	Cross-site scripting (persistent, prime)
+40017	FAIL	Cross-site scripting (persistent, spider)
+90019	FAIL	Server-side code injection
+90020	FAIL	Remote OS command injection
+90021	FAIL	XPath injection
+90023	FAIL	XML external entity attack
+6	FAIL	Path traversal
+7	FAIL	Remote file inclusion
+#
+# Disclosure: nothing about the server or its errors should reach a caller.
+10036	FAIL	Server header leaks version information (Kestrel's header is off)
+10037	FAIL	X-Powered-By header
+90022	FAIL	Application error disclosure
+40028	FAIL	ELMAH information leak
+#
+# Headers the API sets on every answer (SecurityHeaders.cs); missing ones mean a regression.
+10021	FAIL	X-Content-Type-Options header missing
+10020	FAIL	Anti-clickjacking header missing
+10035	FAIL	Strict-Transport-Security header missing
+10038	FAIL	Content-Security-Policy header missing
+#
+# Not applicable to a JSON API with no cookies or HTML; reported but not failed.
+10054	IGNORE	Cookie without SameSite attribute: the API sets no cookies
+10010	IGNORE	Cookie without HttpOnly flag: the API sets no cookies
+10011	IGNORE	Cookie without Secure flag: the API sets no cookies
