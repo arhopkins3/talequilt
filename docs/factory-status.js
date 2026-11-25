@@ -2,7 +2,7 @@
 // Status vocabulary: done | active | manual | planned. Planned items carry the phase that builds them.
 // Update this file in the same pull request as the change it describes.
 window.FACTORY = {
-  asOf: "25 November 2026, first production deploy through G4 (Deploy run 18); staging test suites (build 3b) next",
+  asOf: "25 November 2026, staging test suites gate promotion (build 3b, in review); build 4 and the Phase 3 drill next",
   phases: [
   { n: 0, title: "Foundations", status: "done", exit: "A one-line change reaches main only through a reviewed pull request" },
   { n: 1, title: "Skeleton and CI", status: "done", exit: "A pull request with a failing test or lint error cannot merge" },
@@ -62,12 +62,12 @@ window.FACTORY = {
     checks: [
       { t: "Container images built on every pull request, published by Deploy after CI passes on main", status: "done" },
       { t: "Deploy staging after CI on main (Bicep + OIDC, migrations, web upload)", status: "done", note: "first green run 24 November 2026" },
-      { t: "Playwright end-to-end", status: "planned", phase: 3 },
-      { t: "OWASP ZAP baseline", status: "planned", phase: 3 },
-      { t: "Accessibility checks", status: "planned", phase: 3 },
+      { t: "Playwright end-to-end against the staging API, before promotion is offered", status: "active", note: "build 3b" },
+      { t: "OWASP ZAP API scan of the staging API (injection and disclosure rules fail the run)", status: "active", note: "build 3b" },
+      { t: "Accessibility checks (axe, WCAG 2.1 AA; serious or critical findings fail the run)", status: "active", note: "build 3b" },
       { t: "AI evals", status: "planned", phase: 6 },
     ],
-    next: { auto: "no gate: staging green" } },
+    next: { auto: "no gate: staging green and its suites passed" } },
   { num: "Stage 6", name: "Production", status: "active", phase: 3,
     agent: { who: "Release agent", what: "prepares the release summary and rollback steps", status: "planned", phase: 4 },
     checks: [

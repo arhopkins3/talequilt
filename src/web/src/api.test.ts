@@ -41,9 +41,12 @@ describe("getHealth", () => {
   it("is unhealthy on a 503", async () => {
     expect(await getHealth(fakeFetch(503, undefined))).toBe("unhealthy");
   });
-  it("is unhealthy when the network fails", async () => {
+  it("is forbidden on a 403, the allow-list's answer", async () => {
+    expect(await getHealth(fakeFetch(403, undefined))).toBe("forbidden");
+  });
+  it("is unreachable when the network fails", async () => {
     const failing = (() => Promise.reject(new TypeError("offline"))) as typeof fetch;
-    expect(await getHealth(failing)).toBe("unhealthy");
+    expect(await getHealth(failing)).toBe("unreachable");
   });
 });
 
