@@ -10,7 +10,7 @@ An architecture decision record (ADR) captures one significant choice: the conte
 | [0004](0004-claude-authentication-in-ci.md) | Claude authentication in CI: Console API key with a spend limit | Accepted |
 | [0005](0005-image-generation-provider-strategy.md) | Image generation behind a provider interface, OpenAI first, Azure second | Accepted |
 | [0006](0006-print-target-lulu.md) | Print target: Lulu, 8.5 in square and 6 x 9 in | Accepted |
-| [0007](0007-hosting-shape.md) | Hosting shape: Container Apps, Static Web Apps, Azure SQL serverless | Proposed, costed in Phase 3 |
+| [0007](0007-hosting-shape.md) | Hosting shape: Container Apps, Static Web Apps, Azure SQL serverless |  Accepted  |
 | [0008](0008-sign-in-google-and-apple.md) | Sign-in with Google and Apple through libraries, allow-listed accounts | Accepted |
 | [0009](0009-test-coverage-threshold.md) | Test coverage threshold: 80 percent, ratchet only upward | Accepted |
 | [0010](0010-change-size-and-plan-gate.md) | Change size classification and when the plan gate is skipped | Accepted |

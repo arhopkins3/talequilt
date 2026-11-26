@@ -80,8 +80,10 @@ resource api 'Microsoft.App/containerApps@2025-01-01' = {
           resources: { cpu: json('0.25'), memory: '0.5Gi' }
           env: commonEnv
           probes: [
-            { type: 'Liveness', httpGet: { path: '/api/health', port: 8080 }, initialDelaySeconds: 10, periodSeconds: 30 }
-            { type: 'Readiness', httpGet: { path: '/api/health', port: 8080 }, initialDelaySeconds: 5, periodSeconds: 10 }
+            // The probes ask the endpoint that runs no checks. Probing /api/health, which queries the database, kept
+            // the serverless database awake around the clock on the always-on production replica (ADR 0007).
+            { type: 'Liveness', httpGet: { path: '/api/health/live', port: 8080 }, initialDelaySeconds: 10, periodSeconds: 30 }
+            { type: 'Readiness', httpGet: { path: '/api/health/live', port: 8080 }, initialDelaySeconds: 5, periodSeconds: 10 }
           ]
         }
       ]

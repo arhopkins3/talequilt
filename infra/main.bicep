@@ -55,6 +55,9 @@ param budgetStartDate string
 @maxValue(1)
 param apiMinReplicas int = 0
 
+@description('Minutes of inactivity before the serverless database pauses (ADR 0007). 15 in staging, where deploys and tests are the only traffic; 60 in production, so a reader does not pay a cold start between pages.')
+param sqlAutoPauseDelayMinutes int = 60
+
 var prefix = 'talequilt-${environmentName}'
 var tags = {
   project: 'talequilt'
@@ -102,6 +105,7 @@ module sql 'modules/sql.bicep' = {
     adminPrincipalType: sqlAdminPrincipalType
     logAnalyticsWorkspaceId: logs.outputs.workspaceId
     alertEmail: budgetAlertEmail
+    autoPauseDelayMinutes: sqlAutoPauseDelayMinutes
   }
 }
 
