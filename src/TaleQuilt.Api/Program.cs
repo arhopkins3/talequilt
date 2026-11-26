@@ -14,7 +14,18 @@ builder.WebHost.ConfigureKestrel(static options => options.AddServerHeader = fal
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDbContext<TaleQuiltDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("TaleQuilt")));
-builder.Services.AddHealthChecks().AddDbContextCheck<TaleQuiltDbContext>("database");
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<TaleQuiltDbContext>("database")
+    // A switch for the Phase 3 drill and for draining an environment on purpose: when Health:ForceUnhealthy is
+    // true, /api/health reports Unhealthy so the deploy's smoke test fails and the rollback runs. Off by default,
+    // set per environment in the Bicep, never in code. /api/health/live ignores it, so the replica stays up.
+    .AddCheck("forced", () =>
+    {
+        var forced = builder.Configuration.GetValue<bool>("Health:ForceUnhealthy");
+        return forced
+            ? HealthCheckResult.Unhealthy("Health:ForceUnhealthy is set; this environment is deliberately reporting unhealthy")
+            : HealthCheckResult.Healthy();
+    });
 // The public product name (ADR 0022) is configuration, read for the OpenAPI document's title here and for the
 // PDF's metadata later; the project name, TaleQuilt, stays in code and resources. It is read when the document is
 // built, not when the host is, so configuration added by a test host or an environment is honoured.

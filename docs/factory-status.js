@@ -2,7 +2,7 @@
 // Status vocabulary: done | active | manual | planned. Planned items carry the phase that builds them.
 // Update this file in the same pull request as the change it describes.
 window.FACTORY = {
-  asOf: "26 November 2026, ADR 0007 accepted with prices (build 4, in review); Phase 3 drill and debrief next",
+  asOf: "26 November 2026, Phase 3 drill prepared (plan in docs/phases/phase-3-drill.md, in review); the drill and debrief next",
   phases: [
   { n: 0, title: "Foundations", status: "done", exit: "A one-line change reaches main only through a reviewed pull request" },
   { n: 1, title: "Skeleton and CI", status: "done", exit: "A pull request with a failing test or lint error cannot merge" },

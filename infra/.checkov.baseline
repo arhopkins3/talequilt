@@ -1,0 +1,16 @@
+{
+    "failed_checks": [
+        {
+            "file": "/modules/sql.bicep",
+            "findings": [
+                {
+                    "resource": "Microsoft.Sql/servers/databases.masterDb",
+                    "check_ids": [
+                        "CKV_AZURE_23",
+                        "CKV_AZURE_25"
+                    ]
+                }
+            ]
+        }
+    ]
+}

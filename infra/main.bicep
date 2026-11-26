@@ -58,6 +58,9 @@ param apiMinReplicas int = 0
 @description('Minutes of inactivity before the serverless database pauses (ADR 0007). 15 in staging, where deploys and tests are the only traffic; 60 in production, so a reader does not pay a cold start between pages.')
 param sqlAutoPauseDelayMinutes int = 60
 
+@description('Phase 3 drill switch: when true the API reports unhealthy so the smoke test fails and the rollback runs. False in both environments outside a drill.')
+param healthForceUnhealthy bool = false
+
 var prefix = 'talequilt-${environmentName}'
 var tags = {
   project: 'talequilt'
@@ -122,6 +125,7 @@ module apps 'modules/containerapps.bicep' = {
     apiImage: apiImage
     workerImage: workerImage
     apiMinReplicas: apiMinReplicas
+    healthForceUnhealthy: healthForceUnhealthy
     sqlConnectionString: sql.outputs.connectionString
     storageAccountName: storage.outputs.storageAccountName
     keyVaultUri: keyVault.outputs.vaultUri
