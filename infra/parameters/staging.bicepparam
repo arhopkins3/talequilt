@@ -13,5 +13,6 @@ param apiImage = readEnvironmentVariable('API_IMAGE')
 param workerImage = readEnvironmentVariable('WORKER_IMAGE')
 param budgetAlertEmail = readEnvironmentVariable('BUDGET_ALERT_EMAIL')
 param budgetStartDate = readEnvironmentVariable('BUDGET_START_DATE')
-param monthlyBudgetGbp = 10
+param monthlyBudgetGbp = 15
 param apiMinReplicas = 0
+param sqlAutoPauseDelayMinutes = 15

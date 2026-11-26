@@ -12,6 +12,8 @@ param adminLogin string
 param adminPrincipalType string
 param logAnalyticsWorkspaceId string
 param alertEmail string
+@description('Minutes of inactivity before the serverless database pauses; 15 is the minimum. Paused compute is free (ADR 0007).')
+param autoPauseDelayMinutes int = 60
 
 resource server 'Microsoft.Sql/servers@2023-08-01-preview' = {
   // checkov:skip=CKV_AZURE_113: Private endpoints need a VNet; the consumption Container Apps plan has none. Entra-only auth, TLS 1.2 and auditing are on. Reviewed again in Phase 5 (ADR 0021).
@@ -52,7 +54,7 @@ resource database 'Microsoft.Sql/servers/databases@2023-08-01-preview' = {
   sku: { name: 'GP_S_Gen5', tier: 'GeneralPurpose', family: 'Gen5', capacity: 1 }
   properties: {
     minCapacity: json('0.5')
-    autoPauseDelay: 60
+    autoPauseDelay: autoPauseDelayMinutes
     maxSizeBytes: 2147483648
     zoneRedundant: false
     requestedBackupStorageRedundancy: 'Local'

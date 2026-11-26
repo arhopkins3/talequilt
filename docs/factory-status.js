@@ -2,7 +2,7 @@
 // Status vocabulary: done | active | manual | planned. Planned items carry the phase that builds them.
 // Update this file in the same pull request as the change it describes.
 window.FACTORY = {
-  asOf: "25 November 2026, staging test suites gate promotion (build 3b, in review); build 4 and the Phase 3 drill next",
+  asOf: "26 November 2026, ADR 0007 accepted with prices (build 4, in review); Phase 3 drill and debrief next",
   phases: [
   { n: 0, title: "Foundations", status: "done", exit: "A one-line change reaches main only through a reviewed pull request" },
   { n: 1, title: "Skeleton and CI", status: "done", exit: "A pull request with a failing test or lint error cannot merge" },
@@ -80,7 +80,7 @@ window.FACTORY = {
     agent: { who: "Triage agent", what: "turns alerts and failed runs into issues with a diagnosis", status: "planned", phase: 4 },
     checks: [
       { t: "Audit log", status: "planned", phase: 5 },
-      { t: "Cost alerts", status: "planned", phase: 3 },
+      { t: "Cost alerts (budget per environment, 50 and 100 percent, ADR 0007)", status: "done" },
       { t: "Monitoring and dashboards", status: "planned", phase: 8 },
       { t: "Pipeline metrics", status: "planned", phase: 4 },
       { t: "Factory console (live view)", status: "done" },

@@ -22,6 +22,18 @@ public sealed class BooksEndpointTests(ApiFixture fixture) : IClassFixture<ApiFi
     }
 
     [Fact]
+    public async Task Liveness_answers_without_touching_the_database()
+    {
+        // The Container Apps probes ask this one; it must not keep the serverless database awake (ADR 0007).
+        var response = await _client.GetAsync(new Uri("/api/health/live", UriKind.Relative), TestContext.Current.CancellationToken);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+        body.ShouldContain("\"status\":\"Healthy\"");
+        body.ShouldContain("\"checks\":[]");
+    }
+
+    [Fact]
     public async Task Creating_a_book_returns_it_and_makes_it_listable()
     {
         var create = await _client.PostAsJsonAsync("/api/books", new CreateBookRequest("  The Lighthouse Keeper's Cat "), TestContext.Current.CancellationToken);

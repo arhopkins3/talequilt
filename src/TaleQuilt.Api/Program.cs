@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using TaleQuilt.Api;
 using TaleQuilt.Api.Endpoints;
 using TaleQuilt.Core.Data;
@@ -62,19 +63,23 @@ app.UseCors();
 // document holds nothing secret, and the ZAP scan in the Deploy workflow reads it to learn the routes to test.
 app.MapOpenApi();
 
-// The health answer is JSON, like every other answer: the overall status and one entry per check.
-app.MapHealthChecks("/api/health", new HealthCheckOptions
+// Two health answers, both JSON. /api/health runs every check, the database included: the smoke tests and the
+// web app ask it. /api/health/live runs none: it says only that the process is up, and it is what the Container
+// Apps probes ask every few seconds. Probing the database endpoint kept the serverless database awake around
+// the clock in production, at about nine times the budget (ADR 0007); the probe must not be the thing that
+// stops it pausing.
+static Task WriteHealthJson(HttpContext context, HealthReport report)
 {
-    ResponseWriter = static (context, report) =>
+    context.Response.ContentType = "application/json; charset=utf-8";
+    return context.Response.WriteAsJsonAsync(new
     {
-        context.Response.ContentType = "application/json; charset=utf-8";
-        return context.Response.WriteAsJsonAsync(new
-        {
-            status = report.Status.ToString(),
-            checks = report.Entries.Select(e => new { name = e.Key, status = e.Value.Status.ToString() }),
-        });
-    },
-});
+        status = report.Status.ToString(),
+        checks = report.Entries.Select(e => new { name = e.Key, status = e.Value.Status.ToString() }),
+    });
+}
+
+app.MapHealthChecks("/api/health", new HealthCheckOptions { ResponseWriter = WriteHealthJson });
+app.MapHealthChecks("/api/health/live", new HealthCheckOptions { Predicate = static _ => false, ResponseWriter = WriteHealthJson });
 app.MapBookEndpoints();
 
 await app.RunAsync().ConfigureAwait(false);
