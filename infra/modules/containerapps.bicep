@@ -17,6 +17,8 @@ param storageAccountName string
 param keyVaultUri string
 @description('Origin of the web app, allowed by the API\'s CORS policy (ADR 0021).')
 param webOrigin string
+@description('When true the API reports unhealthy on /api/health so the deploy smoke test fails and the rollback runs; the Phase 3 drill switch. Off everywhere except for a drill.')
+param healthForceUnhealthy bool = false
 
 resource workspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
   name: last(split(logAnalyticsWorkspaceId, '/'))
@@ -45,6 +47,7 @@ var commonEnv = [
   { name: 'KeyVault__Uri', value: keyVaultUri }
   { name: 'Cors__AllowedOrigins__0', value: webOrigin }
   { name: 'ASPNETCORE_FORWARDEDHEADERS_ENABLED', value: 'true' }
+  { name: 'Health__ForceUnhealthy', value: string(healthForceUnhealthy) }
 ]
 
 resource api 'Microsoft.App/containerApps@2025-01-01' = {

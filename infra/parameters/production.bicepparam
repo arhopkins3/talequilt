@@ -16,3 +16,4 @@ param budgetStartDate = readEnvironmentVariable('BUDGET_START_DATE')
 param monthlyBudgetGbp = 25
 param apiMinReplicas = 1
 param sqlAutoPauseDelayMinutes = 60
+param healthForceUnhealthy = false

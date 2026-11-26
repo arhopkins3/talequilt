@@ -156,6 +156,9 @@ jobs:
         with:
           directory: infra
           framework: bicep
-          soft_fail: true # reports until Phase 3 makes it a gate (ADR 0019)
+          # A gate from Phase 3 (ADR 0019): a finding fails the job. The baseline accepts the two findings Checkov
+          # raises on the `existing` master database reference, which the template reads and does not create.
+          soft_fail: false
+          baseline: infra/.checkov.baseline
           output_format: cli,sarif
           output_file_path: console,checkov.sarif

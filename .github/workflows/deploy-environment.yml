@@ -128,6 +128,12 @@ jobs:
           echo "WORKER_IMAGE=${current_worker:-$NEW_WORKER_IMAGE}" >> "$GITHUB_ENV"
           echo "PREVIOUS_API_IMAGE=${current_api}" >> "$GITHUB_ENV"
           echo "PREVIOUS_WORKER_IMAGE=${current_worker}" >> "$GITHUB_ENV"
+          # The revision serving now is what a rollback returns traffic to. It is read here, before the Bicep deploy,
+          # because a template change (an environment variable, say) makes the Bicep deploy create a revision of its
+          # own, and that one carries the change being rolled back.
+          previous_revision="$(az containerapp show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.latestRevisionName -o tsv 2>/dev/null || true)"
+          echo "PREVIOUS_REVISION=${previous_revision}" >> "$GITHUB_ENV"
           echo "Infrastructure deploy uses API ${current_api:-$NEW_API_IMAGE (first deployment)} and worker ${current_worker:-$NEW_WORKER_IMAGE (first deployment)}"
       - name: What-if (the plan, in the log)
         run: |
@@ -187,15 +193,15 @@ jobs:
             -v AppIdentity="$APP_IDENTITY_NAME" -v AppClientId="$APP_IDENTITY_CLIENT_ID" \
             -v HumanLogin="$SQL_ADMIN_LOGIN" -v HumanObjectId="$SQL_ADMIN_OBJECT_ID" -i eng/deploy/grant-users.sql
       - name: Roll out the new images
-        # The schema is now at least as new as the code, so the new revisions can start. The revision serving before
-        # the rollout is recorded first: it is what a rollback shifts traffic back to.
+        # The schema is now at least as new as the code, so the new revisions can start. A rollback shifts traffic
+        # back to the revision recorded before the Bicep step, not the one before this rollout.
         id: rollout
         run: |
-          previous="$(az containerapp show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --query properties.latestRevisionName -o tsv)"
+          previous="$PREVIOUS_REVISION"
           az containerapp update --name "$WORKER_APP" --resource-group "$AZURE_RESOURCE_GROUP" --image "$NEW_WORKER_IMAGE" -o none
           az containerapp update --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --image "$NEW_API_IMAGE" -o none
           revision="$(az containerapp show --name "$API_APP" --resource-group "$AZURE_RESOURCE_GROUP" --query properties.latestRevisionName -o tsv)"
-          if [ "$revision" = "$previous" ]; then previous=""; fi # first deployment, or the same image again: nothing to return to
+          if [ "$revision" = "$previous" ]; then previous=""; fi # first deployment, or nothing changed: nothing to return to
           echo "revision=$revision" >> "$GITHUB_OUTPUT"
           echo "previous_revision=$previous" >> "$GITHUB_OUTPUT"
           echo "API revision $revision (previous: ${previous:-none})"

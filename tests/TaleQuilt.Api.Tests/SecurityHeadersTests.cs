@@ -74,6 +74,23 @@ public sealed class SecurityHeadersTests(ApiFixture fixture) : IClassFixture<Api
     }
 
     [Fact]
+    public async Task Forcing_unhealthy_fails_the_full_health_answer_but_not_liveness()
+    {
+        // The Phase 3 drill's switch: the smoke test must fail and the rollback run, while the replica stays up.
+        using var client = fixture.WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, config) =>
+            config.AddInMemoryCollection([new KeyValuePair<string, string?>("Health:ForceUnhealthy", "true")]))).CreateClient();
+
+        using var full = await client.GetAsync(new Uri("/api/health", UriKind.Relative), TestContext.Current.CancellationToken);
+        using var live = await client.GetAsync(new Uri("/api/health/live", UriKind.Relative), TestContext.Current.CancellationToken);
+        var body = await full.Content.ReadAsStringAsync(TestContext.Current.CancellationToken);
+
+        full.StatusCode.ShouldBe(HttpStatusCode.ServiceUnavailable);
+        body.ShouldContain("\"status\":\"Unhealthy\"");
+        body.ShouldContain("\"name\":\"forced\",\"status\":\"Unhealthy\"");
+        live.StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task The_openapi_document_describes_the_book_routes()
     {
         using var client = fixture.CreateClient();
